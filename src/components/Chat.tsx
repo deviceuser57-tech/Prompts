@@ -30,12 +30,47 @@ function CopyBtn({ text, label = "نسخ" }: { text: string; label?: string }) {
   );
 }
 
+function DownloadBtn({ name, content, label, compact = false }: { name: string; content: string; label: string; compact?: boolean }) {
+  const [done, setDone] = useState(false);
+  const t = useRef<number | null>(null);
+  const go = () => {
+    download(name, content);
+    setDone(true);
+    if (t.current) window.clearTimeout(t.current);
+    t.current = window.setTimeout(() => setDone(false), 1800);
+  };
+  return (
+    <button
+      onClick={go}
+      className={`btn-press inline-flex items-center gap-1.5 font-medium ${
+        compact
+          ? "rounded-md border border-line bg-panel px-2.5 py-1.5 text-xs text-mute hover:text-ink hover:border-teal/50"
+          : "rounded-lg border border-line bg-panel px-3.5 py-2 text-xs text-mute hover:text-ink"
+      }`}
+    >
+      <Icon name={done ? "check" : "download"} className="w-3.5 h-3.5" strokeWidth={2.2} />
+      <span className={done ? "text-good" : ""}>{done ? "نُزّل" : label}</span>
+    </button>
+  );
+}
+
 function download(name: string, content: string) {
-  const blob = new Blob(["\uFEFF" + content], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = name; a.click();
-  URL.revokeObjectURL(url);
+  try {
+    const blob = new Blob(["\uFEFF" + content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.rel = "noopener";
+    document.body.appendChild(a); // إرفاق بالـ DOM يضمن عمل النقرة في كل المتصفحات
+    a.click();
+    document.body.removeChild(a);
+    // نؤجل الإلغاء حتى يبدأ التنزيل فعلًا
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch (err) {
+    console.error("فشل التنزيل:", err);
+    window.alert("تعذّر التنزيل — جرّب زر النسخ بدلًا منه.");
+  }
 }
 
 /* ---------------- رؤوس الرسائل ---------------- */
@@ -117,6 +152,24 @@ function AnalysisCard({ msg, onAccept, onDecline, onCmd }: {
         {/* 1) النموذج الأنسب */}
         <section>
           <SectionTitle n="1" title="أنسب نموذج لتنفيذ المطلوب" />
+
+          {/* بانر التوصية الأولى */}
+          <div className="mb-3 rounded-lg border border-amber/50 bg-gradient-to-l from-amber/15 via-amber/5 to-transparent px-3.5 py-3 flex items-center gap-3 shadow-[0_0_30px_rgba(242,163,60,0.08)]">
+            <div className="grid place-items-center w-9 h-9 shrink-0 rounded-lg bg-amber text-deep shadow-[0_4px_16px_rgba(242,163,60,0.4)]">
+              <Icon name="crown" className="w-5 h-5" strokeWidth={2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-amber font-semibold mb-0.5">التوصية الأولى للتنفيذ</p>
+              <p className="font-display font-extrabold text-base text-amberhi leading-tight" style={{ textShadow: "0 0 20px rgba(242,163,60,0.4)" }}>
+                {top.ar} <span className="font-mono text-[11px] font-normal text-mute">({top.name})</span>
+              </p>
+              <p className="text-[11px] text-mute mt-1 leading-relaxed">
+                {top.reasons.length ? top.reasons.join(" · ") : top.strengths}
+              </p>
+            </div>
+            <span className="shrink-0 font-mono text-sm font-bold text-amberhi dir-ltr">{top.pct}%</span>
+          </div>
+
           <ModelBars a={a} />
         </section>
 
@@ -212,23 +265,39 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
           { k: "الأبعاد", v: p.meta.ratio },
           { k: "سقف الهلوسة", v: p.meta.halluc },
           { k: "الأوامر", v: `${p.meta.stack.split("+").length} عمليات` },
-        ].map((m) => (
-          <div key={m.k} className="bg-panel px-3 py-2.5">
-            <p className="text-[9.5px] text-dim mb-1">{m.k}</p>
-            <p className="text-[11.5px] font-semibold text-ink leading-tight">{m.v}</p>
+        ].map((m, idx) => (
+          <div key={m.k} className={`px-3 py-2.5 ${idx === 0 ? "bg-amber/15" : "bg-panel"}`}>
+            <p className={`text-[9.5px] mb-1 ${idx === 0 ? "text-amber" : "text-dim"}`}>{m.k}</p>
+            <p className={`text-[11.5px] font-semibold leading-tight ${idx === 0 ? "text-amberhi" : "text-ink"}`}>{m.v}</p>
           </div>
         ))}
       </div>
 
       <div className="p-4 space-y-3">
-        {p.sections.map((s, i) => (
-          <div key={i} className="reveal on rounded-lg border border-line bg-deep/50">
-            <div className="px-3 py-2 flex items-center gap-2 border-b border-line/60">
-              <span className="font-display font-bold text-[12px] text-amberhi">{i + 1}. {s.h}</span>
+        {p.sections.map((s, i) => {
+          const isModel = s.h.includes("النموذج الموصى به");
+          return (
+            <div
+              key={i}
+              className={`reveal on rounded-lg border ${
+                isModel
+                  ? "border-amber/55 bg-gradient-to-l from-amber/15 via-amber/5 to-transparent shadow-[0_0_30px_rgba(242,163,60,0.1)]"
+                  : "border-line bg-deep/50"
+              }`}
+            >
+              <div className={`px-3 py-2 flex items-center gap-2 border-b ${isModel ? "border-amber/30" : "border-line/60"}`}>
+                {isModel && <Icon name="crown" className="w-4 h-4 text-amber" strokeWidth={2} />}
+                <span className={`font-display font-bold text-[12px] ${isModel ? "text-amberhi" : "text-amberhi"}`}>{i + 1}. {s.h}</span>
+                {isModel && (
+                  <span className="mr-auto text-[9.5px] font-semibold text-amber border border-amber/50 bg-amber/10 rounded px-1.5 py-0.5">
+                    ابدأ من هنا
+                  </span>
+                )}
+              </div>
+              <p className={`px-3 py-2.5 text-[12px] leading-relaxed whitespace-pre-wrap ${isModel ? "text-ink" : "text-ink/85"}`}>{s.body}</p>
             </div>
-            <p className="px-3 py-2.5 text-[12px] leading-relaxed text-ink/85 whitespace-pre-wrap">{s.body}</p>
-          </div>
-        ))}
+          );
+        })}
 
         {/* الكتلة الجاهزة */}
         <div className="rounded-lg border border-teal/35 bg-deep/70 overflow-hidden">
@@ -237,10 +306,7 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
             <span className="font-display font-bold text-[12px] text-teal">الكتلة الجاهزة للصق (English)</span>
             <div className="mr-auto flex gap-1.5">
               <CopyBtn text={p.paste} label="نسخ البرومبت" />
-              <button onClick={() => download("visual-prompt.txt", p.paste)} className="btn-press inline-flex items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-mute hover:text-ink hover:border-teal/50">
-                <Icon name="download" className="w-3.5 h-3.5" strokeWidth={2.2} />
-                <span className="hidden sm:inline">تنزيل</span>
-              </button>
+              <DownloadBtn name="visual-prompt.txt" content={p.paste} label="تنزيل" compact />
             </div>
           </div>
           <button onClick={() => setOpen(!open)} className="w-full text-right">
@@ -252,9 +318,11 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
         </div>
 
         <div className="flex flex-wrap gap-2 pt-1">
-          <button onClick={() => download("visual-prompt-full.txt", formatFull(p))} className="btn-press inline-flex items-center gap-2 rounded-lg border border-line bg-panel px-3.5 py-2 text-xs font-medium text-mute hover:text-ink">
-            <Icon name="download" className="w-4 h-4" /> تنزيل المواصفة كاملة
-          </button>
+          <DownloadBtn
+            name="visual-spec-full.txt"
+            content={formatFull(p)}
+            label="تنزيل المواصفة الكاملة (.txt)"
+          />
           <button onClick={onNew} className="btn-press inline-flex items-center gap-2 rounded-lg border border-teal/40 bg-teal/10 px-3.5 py-2 text-xs font-semibold text-teal hover:bg-teal/20">
             <Icon name="refresh" className="w-4 h-4" /> طلب جديد
           </button>

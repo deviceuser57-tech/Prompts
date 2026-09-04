@@ -352,10 +352,11 @@ export function analyze(raw: string, prev?: Analysis | null): Analysis | null {
     boost(I("sdxl"), 1, "قابل للضبط عبر ControlNet");
   }
   if (usedCats.has("medical")) boost(I("gpt"), 2, "ضبط علمي يقلل الهلوسة التشريحية");
-  if (reasons.every((r) => r.length === 0)) reasons[0].push("توازن عام قوي عبر الفئات المطلوبة");
 
   const maxScore = Math.max(...modelScores);
   const order = MODELS.map((m, i) => i).sort((a, b) => modelScores[b] - modelScores[a]).slice(0, 3);
+  // لو مفيش أي سبب مُسجَّل، اربط السبب الافتراضي بالنموذج الفائز نفسه وليس بالفهرس 0
+  if (reasons.every((r) => r.length === 0)) reasons[order[0]].push("توازن عام قوي عبر الفئات المطلوبة");
   const models: ModelScore[] = order.map((i) => ({
     modelId: MODELS[i].id, name: MODELS[i].name, ar: MODELS[i].ar, hue: MODELS[i].hue, strengths: MODELS[i].strengths,
     score: Math.round(modelScores[i] * 10) / 10,
@@ -459,7 +460,15 @@ export function buildPrompt(a: Analysis): BuiltPrompt {
     .map((p, i) => `${i + 1}. /${p.cmd.name} — ${p.cmd.fn} ← النتيجة: تطبيق هذه العملية البصرية على الموضوع مع الحفاظ على الاتساق بين كل المخرجات.`)
     .join("\n");
 
+  const runners = a.models.slice(1).map((m) => `${m.name} (${m.pct}%)`).join("، ");
   const sections = [
+    {
+      h: "النموذج الموصى به (Recommended Engine)",
+      body:
+        `نفّذ هذا البرومبت على: ${top.name} — ${top.ar}.\n` +
+        `سبب الاختيار: ${top.reasons.length ? top.reasons.join("، ") : top.strengths}\n` +
+        (runners ? `بدائل قوية إن لم يتوفر: ${runners}.` : `هذا هو النموذج الأنسب لطلبك دون منازع.`),
+    },
     { h: "الشخصية (Persona)", body: `يتقمص النموذج دور: ${persona.ar}.\nYou are ${persona.en}, executing a precise visual brief — not improvising.` },
     { h: "المطلوب (Task)", body: `تنفيذ ${count > 1 ? `سلسلة من ${count} صور مترابطة` : "صورة واحدة"} لـ${a.subjectAr ? `«${a.subjectAr}»` : "الموضوع الموصوف في الطلب"} ضمن مجال: ${a.cats.map((c) => c.title).join(" + ")}. كل التفاصيل التالية إلزامية وليست اقتراحات.` },
     { h: "مجموعة الأوامر (Command Stack)", body: `التركيبة: ${a.stackLine}\n\n${cmdDetails}` },
@@ -468,6 +477,7 @@ export function buildPrompt(a: Analysis): BuiltPrompt {
   ];
 
   const enBits: string[] = [];
+  enBits.push(`[RECOMMENDED ENGINE: ${top.name} — ${top.ar} | Fallbacks: ${runners || "none"}]`);
   enBits.push(`You are ${persona.en}.`);
   enBits.push(`Create ${count > 1 ? `${count} coherent images` : "one image"} of ${subjectEn}.`);
   enBits.push(`Apply this visual operation stack in order: ${ops}.`);
