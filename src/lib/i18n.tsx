@@ -80,20 +80,24 @@ interface Ctx {
 }
 const AppCtx = createContext<Ctx | null>(null);
 
+function readLS(k: string): string | null { try { return localStorage.getItem(k); } catch { return null; } }
+function writeLS(k: string, v: string) { try { localStorage.setItem(k, v); } catch { /* ignore */ } }
+
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => (localStorage.getItem("basar.locale") === "en" ? "en" : "ar"));
-  const [theme, setThemeState] = useState<"dark" | "light">(() => (localStorage.getItem("basar.theme") === "light" ? "light" : "dark"));
+  const [locale, setLocaleState] = useState<Locale>(() => (readLS("basar.locale") === "en" ? "en" : "ar"));
+  const [theme, setThemeState] = useState<"dark" | "light">(() => (readLS("basar.theme") === "light" ? "light" : "dark"));
 
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = theme;
-    localStorage.setItem("basar.theme", theme);
+    writeLS("basar.theme", theme);
   }, [theme]);
   useEffect(() => {
     const root = document.documentElement;
     root.lang = locale;
     root.dir = locale === "ar" ? "rtl" : "ltr";
-    localStorage.setItem("basar.locale", locale);
+    writeLS("basar.locale", locale);
+    document.title = locale === "en" ? "Basar Codewords — Visual Prompt Studio" : "قاموس البصر — Visual Codewords Studio";
   }, [locale]);
 
   const value: Ctx = {
