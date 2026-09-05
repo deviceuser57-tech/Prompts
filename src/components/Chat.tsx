@@ -3,7 +3,7 @@ import gsap from "gsap";
 import type { Msg } from "../types";
 import type { Analysis, BuiltPrompt, Bi } from "../lib/engine";
 import { useApp } from "../lib/i18n";
-import { MODELS, ratingLabel } from "../data/commands";
+import { enginesFor, ratingLabel } from "../data/commands";
 import { Icon, StatusDot } from "./Icons";
 
 const RM = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -174,9 +174,9 @@ function AnalysisCard({ msg, onAccept, onDecline, onCmd }: {
       <div className="p-4 space-y-5">
         <p className="text-[13px] leading-relaxed text-ink/90">{L(a.summary)}</p>
 
-        {/* 1) النموذج الأنسب */}
+        {/* 1) الأنسب للتنفيذ */}
         <section>
-          <SectionTitle n="1" title={t("sec1")} />
+          <SectionTitle n="1" title={a.kind === "task" ? t("sec1t") : t("sec1")} />
           {/* بانر التوصية */}
           <div className="mb-3 flex items-center gap-3 rounded-lg border border-amber/45 bg-gradient-to-l from-amber/15 via-amber/5 to-transparent px-3.5 py-3">
             <div className="grid place-items-center w-9 h-9 shrink-0 rounded-lg bg-amber/20 border border-amber/50 text-amber">
@@ -201,18 +201,28 @@ function AnalysisCard({ msg, onAccept, onDecline, onCmd }: {
           <SectionTitle n="2" title={t("sec2")} />
           <div className="space-y-2">
             {a.commands.map((p) => {
-              const ri = MODELS.findIndex((m) => m.id === top.modelId);
-              const rl = ratingLabel(p.cmd.r[ri], locale);
+              const engines = enginesFor(a.kind);
+              const ri = engines.findIndex((m) => m.id === top.modelId);
+              const sameAxis = p.catKind === a.kind;
+              const rl = sameAxis ? ratingLabel(p.cmd.r[ri], locale) : null;
               return (
                 <button key={p.cmd.name} onClick={() => onCmd(p.cmd.name)} className="chip-cmd w-full text-start rounded-lg border border-line bg-panel2/40 px-3 py-2.5 flex items-start gap-3">
                   <code className="shrink-0 font-mono text-[12px] font-semibold text-teal bg-teal/10 border border-teal/30 rounded px-2 py-0.5 dir-ltr mt-0.5">/{p.cmd.name}</code>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[12.5px] text-ink leading-snug">{L({ ar: p.cmd.fn, en: p.cmd.en })}</span>
+                    <span className="block text-[12.5px] text-ink leading-snug">
+                      {L({ ar: p.cmd.fn, en: p.cmd.en })}
+                      <span className={`ms-2 align-middle text-[9px] rounded px-1.5 py-0.5 border ${p.catKind === "task" ? "text-coral border-coral/40 bg-coral/10" : "text-teal border-teal/40 bg-teal/10"}`}>
+                        {p.catKind === "task" ? t("taskBadge") : t("visualBadge")}
+                      </span>
+                    </span>
                     <span className="block text-[10.5px] text-dim mt-0.5">
-                      {t("expectOn")} {top.name}: {rl.label} · {L({ ar: p.catTitle, en: p.catEn })}
+                      {sameAxis
+                        ? <>{t("expectOn")} {top.name}: {rl!.label}</>
+                        : <>{t("otherAxis")}</>}
+                      {" · "}{L({ ar: p.catTitle, en: p.catEn })}
                     </span>
                   </span>
-                  <StatusDot rank={rl.rank} />
+                  {rl ? <StatusDot rank={rl.rank} /> : <span className="w-2.5 h-2.5 mt-1 rounded-full border border-dim/50" />}
                 </button>
               );
             })}
@@ -291,8 +301,8 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-line">
         {[
           { k: t("metaModel"), v: p.meta.model, hi: true },
-          { k: t("metaCount"), v: String(p.meta.count) },
-          { k: t("metaRatio"), v: p.meta.ratio.ar },
+          { k: p.meta.ratio.ar.includes(":") || p.meta.ratio.ar.match(/^\d/) ? t("metaCount") : t("metaCountT"), v: String(p.meta.count) },
+          { k: p.meta.ratio.ar.includes(":") || p.meta.ratio.ar.match(/^\d/) ? t("metaRatio") : t("metaRatioT"), v: L(p.meta.ratio) },
           { k: t("metaHalluc"), v: L(p.meta.halluc) },
           { k: t("metaStack"), v: `${p.meta.stack.split("+").length} ${t("ops")}` },
         ].map((m) => (
@@ -367,11 +377,16 @@ function CommandCard({ msg, onUse }: { msg: Msg; onUse: (stack: string) => void 
             {t("relatedTo")} <code className="font-mono text-teal dir-ltr">/{info.relatedTo}</code> — {t("relatedNote")}
           </p>
         )}
-        <p className="text-[13.5px] leading-relaxed font-medium">{L({ ar: info.cmd.fn, en: info.cmd.en })}</p>
+        <p className="text-[13.5px] leading-relaxed font-medium">
+          {L({ ar: info.cmd.fn, en: info.cmd.en })}
+          <span className={`ms-2 align-middle text-[9px] rounded px-1.5 py-0.5 border ${info.cat.kind === "task" ? "text-coral border-coral/40 bg-coral/10" : "text-teal border-teal/40 bg-teal/10"}`}>
+            {info.cat.kind === "task" ? t("taskBadge") : t("visualBadge")}
+          </span>
+        </p>
         <div>
-          <p className="text-[10.5px] text-dim mb-2 font-semibold">{t("matrix")}</p>
+          <p className="text-[10.5px] text-dim mb-2 font-semibold">{info.cat.kind === "task" ? t("matrixT") : t("matrix")}</p>
           <div className="grid grid-cols-2 gap-1.5">
-            {MODELS.map((m, i) => {
+            {enginesFor(info.cat.kind).map((m, i) => {
               const rl = ratingLabel(info.cmd.r[i], locale);
               return (
                 <div key={m.id} className="flex items-center gap-2 rounded-md border border-line bg-panel2/40 px-2.5 py-1.5">

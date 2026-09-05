@@ -12,20 +12,41 @@ export const MODELS = [
   { id: "sdxl", name: "SDXL", ar: "إس دي إكس إل", st: "Full control via ControlNet & LoRA", stAr: "تحكم كامل عبر ControlNet وLoRA", hue: "#b8c47a" },
 ];
 
+/* مساعدات الذكاء العام لمهام غير بصرية — ترتيب التقييم: gpt5, claude, gemini, grok, perplexity, deepseek, qwen, llama */
+export const TASK_ENGINES = [
+  { id: "gpt5", name: "GPT-5", ar: "جي بي تي 5", st: "Complex multi-step reasoning & tool use", stAr: "استدلال مركب متعدد الخطوات مع أدوات", hue: "#4cc3a5" },
+  { id: "claude", name: "Claude Opus", ar: "كلود أوبس", st: "Long-context writing & deep coding", stAr: "كتابة طويلة السياق وبرمجة عميقة", hue: "#c792ea" },
+  { id: "gemini", name: "Gemini Pro", ar: "جيميناي برو", st: "Multimodal research, 1M-token context", stAr: "بحث متعدد الوسائط بسياق مليون توكن", hue: "#6aa5ff" },
+  { id: "grok", name: "Grok", ar: "جروك", st: "Real-time data & social trends", stAr: "بيانات لحظية واتجاهات اجتماعية", hue: "#f2d16b" },
+  { id: "perplexity", name: "Perplexity", ar: "بيربلكستي", st: "Cited research with live sources", stAr: "بحث موثق بمصادر حية", hue: "#7fd8f5" },
+  { id: "deepseek", name: "DeepSeek", ar: "ديب سيك", st: "Cost-efficient coding & math", stAr: "برمجة ورياضيات بكفاءة كلفة", hue: "#ff8a5c" },
+  { id: "qwen", name: "Qwen-Max", ar: "كوين ماكس", st: "Fluent Arabic & Chinese tasks", stAr: "مهام عربية وصينية بطلاقة", hue: "#ff7ab0" },
+  { id: "llama", name: "Llama 4", ar: "لاما 4", st: "Open-source & on-device execution", stAr: "تشغيل مفتوح المصدر ومحلي", hue: "#b8c47a" },
+];
+
+export function enginesFor(kind: "visual" | "task") {
+  return kind === "task" ? TASK_ENGINES : MODELS;
+}
+
 export function ratingLabel(r: string, locale: "ar" | "en" = "ar") {
   if (r === "3") return { rank: 3, label: locale === "ar" ? "قوي جدًا" : "Excellent" };
   if (r === "2") return { rank: 2, label: locale === "ar" ? "جيد" : "Good" };
   return { rank: 1, label: locale === "ar" ? "محدود" : "Limited" };
 }
 
-export interface Category { id: string; en: string; title: string; icon: string; keywords: string[]; top: string[]; commands: CommandDef[]; }
+export interface Category { id: string; en: string; title: string; icon: string; kind: "visual" | "task"; keywords: string[]; top: string[]; commands: CommandDef[]; }
+
+/* ============ الفئات البصرية ============ */
+const V = (id: string, en: string, title: string, icon: string, keywords: string[], top: string[], commands: CommandDef[]): Category =>
+  ({ id, en, title, icon, kind: "visual", keywords, top, commands });
+const T = (id: string, en: string, title: string, icon: string, keywords: string[], top: string[], commands: CommandDef[]): Category =>
+  ({ id, en, title, icon, kind: "task", keywords, top, commands });
 
 export const CATEGORIES: Category[] = [
-  {
-    id: "views", en: "Multi-View & Perspective", title: "زوايا ومنظورات", icon: "cube",
-    keywords: ["زاويه", "منظور", "زوايا", "علوي", "جانب", "امامي", "بانوراما", "ايزومتري", "لقطه", "view", "angle", "isometric", "pov", "panorama"],
-    top: ["360view", "isometric", "birdseye", "closeup", "pov", "macro", "panoramic"],
-    commands: [
+  V("views", "Multi-View & Perspective", "زوايا ومنظورات", "cube",
+    ["زاويه", "منظور", "زوايا", "علوي", "جانب", "امامي", "بانوراما", "ايزومتري", "لقطه", "view", "angle", "isometric", "pov", "panorama"],
+    ["360view", "isometric", "birdseye", "closeup", "pov", "macro", "panoramic"],
+    [
       c("360view", "دوران 360° متعدد الزوايا", "360° multi-angle turnaround", "33332223"),
       c("multiview", "عدة زوايا في لوحة واحدة", "Multiple angles in one sheet", "33332223"),
       c("frontview", "منظر أمامي مباشر", "Direct front view", "33333333"),
@@ -48,13 +69,11 @@ export const CATEGORIES: Category[] = [
       c("closeup", "لقطة قريبة", "Close-up", "33333333"),
       c("macro", "تفاصيل شديدة القرب", "Extreme detail close-up", "33333333"),
       c("panoramic", "بانوراما عريضة", "Panorama", "33333333"),
-    ],
-  },
-  {
-    id: "engineering", en: "Engineering / Technical", title: "هندسة وتقنية", icon: "gear",
-    keywords: ["محرك", "اله", "ميكانيكا", "تفكيك", "مقطع", "قطاع", "تقني", "هندسي", "اسطوانه", "تروس", "سفينه", "هيكل", "ابعاد", "قياس", "blueprint", "cad", "xray", "شفاف", "wireframe", "شاصي", "توربين", "مولد", "engine", "technical", "gear", "mechanical"],
-    top: ["explodedview", "cutaway", "xray", "blueprint", "isometric", "wireframe", "dimensioned"],
-    commands: [
+    ]),
+  V("engineering", "Engineering / Technical", "هندسة وتقنية", "gear",
+    ["محرك", "اله", "ميكانيكا", "تفكيك", "مقطع", "قطاع", "تقني", "هندسي", "اسطوانه", "تروس", "سفينه", "هيكل", "ابعاد", "قياس", "blueprint", "cad", "xray", "شفاف", "wireframe", "شاصي", "توربين", "مولد", "engine", "technical", "gear", "mechanical"],
+    ["explodedview", "cutaway", "xray", "blueprint", "isometric", "wireframe", "dimensioned"],
+    [
       c("explodedview", "تفكيك المكونات مع الحفاظ على التجميع", "Component breakdown preserving assembly", "33332323"),
       c("cutaway", "إظهار الداخل بقطع الغلاف", "Interior reveal by cutting the shell", "33332323"),
       c("crosssection", "قطاع عرضي", "Cross-section", "33332323"),
@@ -78,13 +97,11 @@ export const CATEGORIES: Category[] = [
       c("callouts", "إشارات مرقمة", "Numbered callouts", "33321333"),
       c("annotated", "شرح توضيحي مُعلَّق", "Annotated visual", "33321333"),
       c("labeled", "تسميات على المكونات", "Labels on components", "33321333"),
-    ],
-  },
-  {
-    id: "architecture", en: "Architecture / Construction", title: "عمارة وإنشاء", icon: "building",
-    keywords: ["فيلا", "مبني", "واجهه", "مسقط", "معمار", "ديكور", "داخلي", "عمراني", "حديقه", "موقع عام", "كتل", "انشاء", "ترميم", "facade", "floorplan", "interior", "villa", "plan", "architect"],
-    top: ["floorplan", "facade", "interior", "elevation", "massing", "landscape"],
-    commands: [
+    ]),
+  V("architecture", "Architecture / Construction", "عمارة وإنشاء", "building",
+    ["فيلا", "مبني", "واجهه", "مسقط", "معمار", "ديكور", "داخلي", "عمراني", "حديقه", "موقع عام", "كتل", "انشاء", "ترميم", "facade", "floorplan", "interior", "villa", "plan", "architect"],
+    ["floorplan", "facade", "interior", "elevation", "massing", "landscape"],
+    [
       c("floorplan", "مخطط أفقي (مسقط)", "Horizontal plan", "33332323"),
       c("siteplan", "مخطط موقع عام", "Site plan", "33332323"),
       c("masterplan", "مخطط عام شامل", "Master plan", "33332323"),
@@ -100,13 +117,11 @@ export const CATEGORIES: Category[] = [
       c("interior", "تصميم داخلي", "Interior design", "33333333"),
       c("landscape", "تنسيق موقع", "Landscape visualization", "33333333"),
       c("urbanplan", "تخطيط عمراني", "Urban planning view", "33332323"),
-    ],
-  },
-  {
-    id: "medical", en: "Scientific / Medical", title: "علمي وطبي", icon: "pulse",
-    keywords: ["قلب", "تشريح", "دماغ", "مجهر", "اعصاب", "جزيء", "جين", "اعضاء", "جراحه", "طبي", "اشعه", "انسجه", "اورده", "هياكل", "قلب", "anatomy", "cell", "heart", "brain", "medical", "surgery", "microscopic", "dna"],
-    top: ["anatomy", "microscopic", "organ", "neural", "molecular", "xray"],
-    commands: [
+    ]),
+  V("medical", "Scientific / Medical", "علمي وطبي", "pulse",
+    ["قلب", "تشريح", "دماغ", "مجهر", "اعصاب", "جزيء", "جين", "اعضاء", "جراحه", "طبي", "اشعه", "انسجه", "اورده", "هياكل", "anatomy", "cell", "heart", "brain", "medical", "surgery", "microscopic", "dna"],
+    ["anatomy", "microscopic", "organ", "neural", "molecular", "xray"],
+    [
       c("anatomy", "تشريح مُسمّى", "Anatomical labeled view", "33332223"),
       c("medical", "رسم طبي", "Medical illustration", "33332223"),
       c("mri", "تصوير بأسلوب MRI", "MRI-style visualization", "33221212"),
@@ -120,13 +135,11 @@ export const CATEGORIES: Category[] = [
       c("surgical", "رسم جراحي", "Surgical illustration", "33221213"),
       c("neural", "شبكات عصبية", "Neural-system visualization", "33333223"),
       c("pathway", "مسار بيولوجي/عملية", "Biological/process pathway", "33332223"),
-    ],
-  },
-  {
-    id: "diagram", en: "Diagram / Info-Visualization", title: "مخططات ومعلومات", icon: "chart",
-    keywords: ["انفوجرافيك", "خريطه", "تدفق", "مقارن", "خط زمني", "شبكه", "نظام بيئي", "مراحل", "دوره", "رحله", "داشبورد", "حراريه", "هرم", "شجره", "رسم توضيحي", "infographic", "flowchart", "mindmap", "timeline", "diagram", "chart", "dashboard"],
-    top: ["infographic", "flowchart", "mindmap", "timeline", "diagram", "comparison"],
-    commands: [
+    ]),
+  V("diagram", "Diagram / Info-Visualization", "مخططات ومعلومات", "chart",
+    ["انفوجرافيك", "خريطه", "تدفق", "مقارن", "خط زمني", "شبكه", "نظام بيئي", "مراحل", "دوره", "رحله", "داشبورد", "حراريه", "هرم", "شجره", "رسم توضيحي", "infographic", "flowchart", "mindmap", "timeline", "diagram", "chart", "dashboard"],
+    ["infographic", "flowchart", "mindmap", "timeline", "diagram", "comparison"],
+    [
       c("visualize", "تحويل فكرة إلى شرح بصري", "Turn an idea into a visual explanation", "33333333"),
       c("diagram", "مخطط مفاهيمي", "Concept diagram", "33332333"),
       c("flowchart", "مخطط تدفق", "Flowchart", "33332333"),
@@ -147,13 +160,11 @@ export const CATEGORIES: Category[] = [
       c("dashboard", "لوحة مؤشرات بصرية", "Visual dashboard", "33221332"),
       c("map", "خريطة جغرافية/مفاهيمية", "Geographic/conceptual map", "33332333"),
       c("marketmap", "خريطة سوق", "Market landscape map", "33332333"),
-    ],
-  },
-  {
-    id: "photo", en: "Camera / Photography", title: "تصوير فوتوغرافي", icon: "camera",
-    keywords: ["بورتريه", "تصوير", "منتج", "طعام", "شارع", "وثائقي", "ازياء", "طبيعه", "رياضه", "جوي", "درون", "photo", "portrait", "product", "food", "street", "fashion", "aerial", "drone"],
-    top: ["productshot", "portrait", "streetphoto", "aerial", "topdown", "longexposure"],
-    commands: [
+    ]),
+  V("photo", "Camera / Photography", "تصوير فوتوغرافي", "camera",
+    ["بورتريه", "تصوير", "منتج", "طعام", "شارع", "وثائقي", "ازياء", "طبيعه", "رياضه", "جوي", "درون", "photo", "portrait", "product", "food", "street", "fashion", "aerial", "drone"],
+    ["productshot", "portrait", "streetphoto", "aerial", "topdown", "longexposure"],
+    [
       c("productshot", "تصوير منتج احترافي", "Professional product photography", "33333333"),
       c("portrait", "بورتريه", "Portrait photography", "33333333"),
       c("headshot", "بورتريه مهني", "Professional headshot", "33333333"),
@@ -170,13 +181,11 @@ export const CATEGORIES: Category[] = [
       c("droneview", "منظور درون", "Drone perspective", "33333333"),
       c("topdown", "Flat-lay من الأعلى", "Flat-lay/top-down", "33333333"),
       c("longexposure", "تعريض طويل", "Long exposure", "33333333"),
-    ],
-  },
-  {
-    id: "cinematic", en: "Cinematic", title: "سينمائي", icon: "film",
-    keywords: ["سينمائي", "فيلم", "ستوري", "كادر", "مشهد", "مطارده", "anamorphic", "bokeh", "بوكيه", "عمق الميدان", "cinematic", "film", "storyboard", "scene"],
-    top: ["cinematic", "filmstill", "anamorphic", "storyboard", "bokeh", "dutchangle"],
-    commands: [
+    ]),
+  V("cinematic", "Cinematic", "سينمائي", "film",
+    ["سينمائي", "فيلم", "ستوري", "كادر", "مشهد", "مطارده", "anamorphic", "bokeh", "بوكيه", "عمق الميدان", "cinematic", "film", "storyboard", "scene"],
+    ["cinematic", "filmstill", "anamorphic", "storyboard", "bokeh", "dutchangle"],
+    [
       c("cinematic", "كادر فيلمي", "Film-like frame", "33333333"),
       c("filmstill", "لقطة فيلم", "Movie still", "33333333"),
       c("anamorphic", "لوك أنامورفيك", "Anamorphic cinema look", "33333333"),
@@ -192,13 +201,11 @@ export const CATEGORIES: Category[] = [
       c("shotlist", "قائمة لقطات", "Visual shot-list", "33333333"),
       c("storyboard", "ستوري بورد متسلسل", "Sequential storyboard", "33333233"),
       c("sceneplan", "تخيل مشهد بمشهد", "Scene-by-scene visualization", "33333233"),
-    ],
-  },
-  {
-    id: "lighting", en: "Lighting / Environment", title: "إضاءة وأجواء", icon: "sun",
-    keywords: ["اضاءه", "غروب", "شروق", "نيون", "مطر", "ثلج", "ضباب", "دخان", "ليل", "قمر", "استوديو", "ضوء", "godrays", "volumetric", "light", "neon", "rain", "sunset", "sunrise", "fog", "night"],
-    top: ["goldenhour", "neon", "volumetriclight", "rimlight", "moonlight", "fog"],
-    commands: [
+    ]),
+  V("lighting", "Lighting / Environment", "إضاءة وأجواء", "sun",
+    ["اضاءه", "غروب", "شروق", "نيون", "مطر", "ثلج", "ضباب", "دخان", "ليل", "قمر", "استوديو", "ضوء", "godrays", "volumetric", "light", "neon", "rain", "sunset", "sunrise", "fog", "night"],
+    ["goldenhour", "neon", "volumetriclight", "rimlight", "moonlight", "fog"],
+    [
       c("goldenhour", "إضاءة الساعة الذهبية", "Golden-hour light", "33333333"),
       c("bluehour", "أجواء الساعة الزرقاء", "Blue-hour atmosphere", "33333333"),
       c("sunrise", "إضاءة شروق", "Sunrise lighting", "33333333"),
@@ -221,13 +228,11 @@ export const CATEGORIES: Category[] = [
       c("snow", "بيئة ثلجية", "Snow environment", "33333333"),
       c("dust", "جزيئات غبار", "Dust particles", "33333333"),
       c("smoke", "أجواء دخان", "Smoke atmosphere", "33333333"),
-    ],
-  },
-  {
-    id: "art", en: "Art & Style", title: "فنون وأساليب", icon: "brush",
-    keywords: ["مائي", "اكواريل", "حبر", "رصاص", "انمي", "انميشن", "قصص", "بكسل", "طين", "ورق", "زجاج معشق", "ريترو", "سريالي", "watercolor", "ink", "pencil", "anime", "comic", "pixel", "clay", "retro", "illustration"],
-    top: ["watercolor", "anime", "pixelart", "conceptart", "ink", "comic"],
-    commands: [
+    ]),
+  V("art", "Art & Style", "فنون وأساليب", "brush",
+    ["مائي", "اكواريل", "حبر", "رصاص", "انمي", "انميشن", "قصص", "بكسل", "طين", "ورق", "زجاج معشق", "ريترو", "سريالي", "watercolor", "ink", "pencil", "anime", "comic", "pixel", "clay", "retro", "illustration"],
+    ["watercolor", "anime", "pixelart", "conceptart", "ink", "comic"],
+    [
       c("photorealistic", "واقعية تصويرية", "Photorealism", "33333333"),
       c("hyperreal", "فرط واقعية", "Hyperrealistic rendering", "33333333"),
       c("conceptart", "كونسبت آرت", "Concept art", "33333333"),
@@ -249,13 +254,11 @@ export const CATEGORIES: Category[] = [
       c("risograph", "طباعة ريزوجراف", "Risograph print", "33333333"),
       c("stainedglass", "زجاج معشق", "Stained glass", "33333333"),
       c("retro", "جماليات مطبوعات ريترو", "Retro print aesthetic", "33333333"),
-    ],
-  },
-  {
-    id: "design", en: "Graphic Design / Branding", title: "تصميم وبراندينج", icon: "pen",
-    keywords: ["لوجو", "بوستر", "غلاف", "بروشور", "تايبوجرافي", "خط عربي", "ملصق", "هويه", "براند", "الوان", "لوحو", "logo", "poster", "cover", "brand", "typography", "sticker", "icon", "moodboard"],
-    top: ["poster", "logo", "cover", "typography", "sticker", "moodboard"],
-    commands: [
+    ]),
+  V("design", "Graphic Design / Branding", "تصميم وبراندينج", "pen",
+    ["لوجو", "بوستر", "غلاف", "بروشور", "تايبوجرافي", "خط عربي", "ملصق", "هويه", "براند", "الوان", "لوحو", "logo", "poster", "cover", "brand", "typography", "sticker", "icon", "moodboard"],
+    ["poster", "logo", "cover", "typography", "sticker", "moodboard"],
+    [
       c("poster", "تصميم بوستر", "Poster design", "33333333"),
       c("cover", "غلاف كتاب/تقرير", "Book/report cover", "33333333"),
       c("albumcover", "غلاف ألبوم", "Album cover", "33333333"),
@@ -275,13 +278,11 @@ export const CATEGORIES: Category[] = [
       c("sticker", "ملصق/لوحة ملصقات", "Sticker / sticker sheet", "33333333"),
       c("moodboard", "مودبورد", "Moodboard", "33333333"),
       c("colorpalette", "استخراج/إنشاء لوحة ألوان", "Extract/create color palette", "33323332"),
-    ],
-  },
-  {
-    id: "product", en: "Product / Commercial / Mockups", title: "منتجات وإعلانات", icon: "box",
-    keywords: ["منتج", "موقع تسويق", "معاينه", "تغليف", "اعلان", "فاخر", "فترين", "mockup", "packaging", "advertisement", "catalog", "billboard", "ecommerce"],
-    top: ["mockup", "packaging", "productshot", "advertisement", "billboard", "luxuryproduct"],
-    commands: [
+    ]),
+  V("product", "Product / Commercial / Mockups", "منتجات وإعلانات", "box",
+    ["منتج", "موقع تسويق", "معاينه", "تغليف", "اعلان", "فاخر", "فترين", "mockup", "packaging", "advertisement", "catalog", "billboard", "ecommerce"],
+    ["mockup", "packaging", "productshot", "advertisement", "billboard", "luxuryproduct"],
+    [
       c("mockup", "موكاب واقعي", "Realistic product/design mockup", "33333333"),
       c("ecommerce", "عرض تجارة إلكترونية", "E-commerce presentation", "33333333"),
       c("catalog", "عرض كتالوج", "Catalogue presentation", "33333333"),
@@ -296,13 +297,11 @@ export const CATEGORIES: Category[] = [
       c("tshirt", "موكاب ملابس", "Apparel mockup", "33333333"),
       c("phone", "موكاب شاشة هاتف", "Phone-screen mockup", "33323332"),
       c("laptop", "موكاب شاشة لابتوب", "Laptop-screen mockup", "33323332"),
-    ],
-  },
-  {
-    id: "editing", en: "Image Editing / Transformation", title: "تحرير وتحويل", icon: "wand",
-    keywords: ["ارفع جوده", "ارفع", "حذف", "احذف", "تغيير الخلفيه", "عزل", "رمم", "تلوين", "تحسين", "وضوح", "ترجمه", "قص", "restore", "upscale", "remove", "enhance", "background", "colorize", "isolate", "relight"],
-    top: ["isolate", "backgroundswap", "remove", "restore", "upscale", "recolor"],
-    commands: [
+    ]),
+  V("editing", "Image Editing / Transformation", "تحرير وتحويل", "wand",
+    ["ارفع جوده", "ارفع", "حذف", "احذف", "تغيير الخلفيه", "عزل", "رمم", "تلوين", "تحسين", "وضوح", "ترجمه", "قص", "restore", "upscale", "remove", "enhance", "background", "colorize", "isolate", "relight"],
+    ["isolate", "backgroundswap", "remove", "restore", "upscale", "recolor"],
+    [
       c("isolate", "قص العنصر", "Subject cutout", "33322323"),
       c("removebg", "حذف الخلفية", "Remove background", "33322323"),
       c("backgroundswap", "استبدال الخلفية", "Replace background", "33332333"),
@@ -327,13 +326,11 @@ export const CATEGORIES: Category[] = [
       c("relight", "تغيير الإضاءة", "Change lighting", "33332323"),
       c("colorize", "تلوين صورة قديمة", "Colorize old image", "33332323"),
       c("colorgrade", "تدرج لوني سينمائي", "Cinematic color grade", "33333333"),
-    ],
-  },
-  {
-    id: "consistency", en: "Consistency / Character", title: "اتساق وشخصيات", icon: "user",
-    keywords: ["شخصيه", "اتساق", "نفس", "ثبات", "هويه", "وجه", "ملابس", "character", "consistent", "turnaround", "identity", "sheet"],
-    top: ["characterconsistency", "styleconsistency", "characterturnaround", "identitylock", "referencebased"],
-    commands: [
+    ]),
+  V("consistency", "Consistency / Character", "اتساق وشخصيات", "user",
+    ["شخصيه", "اتساق", "نفس", "ثبات", "هويه", "وجه", "ملابس", "character", "consistent", "turnaround", "identity", "sheet"],
+    ["characterconsistency", "styleconsistency", "characterturnaround", "identitylock", "referencebased"],
+    [
       c("characterconsistency", "نفس الشخصية عبر الصور", "Same character across images", "33323223"),
       c("styleconsistency", "نفس الأسلوب", "Same style", "33333333"),
       c("identitylock", "تثبيت الهوية البصرية", "Visual identity lock", "33323223"),
@@ -346,13 +343,11 @@ export const CATEGORIES: Category[] = [
       c("characterturnaround", "ورقة دوران شخصية", "Character turnaround sheet", "33322223"),
       c("modelsheet", "ورقة موديل", "Model sheet", "33322223"),
       c("referencebased", "توليد بناءً على مرجع", "Generate based on reference", "33333333"),
-    ],
-  },
-  {
-    id: "conceptual", en: "Conceptual / System", title: "مفاهيمي وأنظمة", icon: "spark",
-    keywords: ["مفهوم", "استعاره", "رمزي", "مستقبل", "تطور", "قبل بعد", "تحول", "نظام", "داخلي", "concept", "metaphor", "future", "evolution", "beforeafter", "symbolic"],
-    top: ["conceptualize", "metaphor", "beforeafter", "future", "evolution", "ecosystem"],
-    commands: [
+    ]),
+  V("conceptual", "Conceptual / System", "مفاهيمي وأنظمة", "spark",
+    ["مفهوم", "استعاره", "رمزي", "مستقبل", "تطور", "قبل بعد", "تحول", "نظام", "داخلي", "concept", "metaphor", "future", "evolution", "beforeafter", "symbolic"],
+    ["conceptualize", "metaphor", "beforeafter", "future", "evolution", "ecosystem"],
+    [
       c("conceptualize", "تحويل مفهوم إلى بصري", "Turn a concept into a visual", "33333333"),
       c("metaphor", "استعارة بصرية", "Visual metaphor", "33333333"),
       c("symbolic", "تمثيل رمزي", "Symbolic representation", "33333333"),
@@ -366,26 +361,22 @@ export const CATEGORIES: Category[] = [
       c("macroscopic", "زووم خارج على مستوى النظام", "System-level zoom out", "33333333"),
       c("microview", "زووم داخلي على التفاصيل", "Detail-level zoom in", "33333333"),
       c("systemview", "تصوير النظام الكامل", "Whole-system visualization", "33332333"),
-    ],
-  },
-  {
-    id: "social", en: "Social / Creator", title: "سوشيال ومبدعين", icon: "share",
-    keywords: ["سوشيال", "محتوى", "ريلز", "تيك", "يوتيوب", "كاروسيل", "مؤثر", "ugc", "social", "reel", "youtube", "tiktok", "creator", "thumbnail"],
-    top: ["ugc", "socialvisual", "thumbnail", "carousel", "adcreative"],
-    commands: [
+    ]),
+  V("social", "Social / Creator", "سوشيال ومبدعين", "share",
+    ["سوشيال", "محتوى", "ريلز", "تيك", "يوتيوب", "كاروسيل", "مؤثر", "ugc", "social", "reel", "youtube", "tiktok", "creator", "thumbnail"],
+    ["ugc", "socialvisual", "thumbnail", "carousel", "adcreative"],
+    [
       c("ugc", "جماليات هاتف/UGC أصيلة", "Authentic smartphone/UGC aesthetic", "33333333"),
       c("socialvisual", "جرافيك سوشيال ميديا", "Social media graphic", "33333333"),
       c("adcreative", "تنفيذ إعلاني للمنصات", "Advertising creative", "33333333"),
       c("broll", "مفاهيم B-roll", "B-roll concepts", "33333333"),
       c("handwritten", "ورقة دراسة مكتوبة يدويًا", "Handwritten study sheet", "33332333"),
       c("stickynotes", "تثبيت ملاحظات لاصقة", "Sticky-note visualization", "33332333"),
-    ],
-  },
-  {
-    id: "learning", en: "Visual Explanation / Learning", title: "شرح وتعليم", icon: "book",
-    keywords: ["اشرح", "شرح", "بسّط", "علمني", "قارن", "كثف", "ملخص", "explain", "eli5", "simplify", "teach", "learn", "cheatsheet", "flashcards"],
-    top: ["eli5", "analogy", "simplify", "teachme", "cheatsheet", "flashcards"],
-    commands: [
+    ]),
+  V("learning", "Visual Explanation / Learning", "شرح وتعليم", "book",
+    ["اشرح", "شرح", "بسط", "علمني", "قارن", "كثف", "ملخص", "explain", "eli5", "simplify", "teach", "learn", "cheatsheet", "flashcards"],
+    ["eli5", "analogy", "simplify", "teachme", "cheatsheet", "flashcards"],
+    [
       c("eli5", "شرح بصري مبسط جدًا", "Explain visually in very simple terms", "33332333"),
       c("expert", "شرح بمستوى خبير", "Expert-level visual explanation", "33332333"),
       c("firstprinciples", "أساسيات من المبادئ الأولى", "Fundamentals visualization", "33332333"),
@@ -397,13 +388,11 @@ export const CATEGORIES: Category[] = [
       c("cheatsheet", "مرجع سريع", "Visual quick-reference", "33332333"),
       c("flashcards", "بطاقات مراجعة", "Visual flashcards", "33332333"),
       c("quiz", "اختبار بصري", "Visual quiz", "33332333"),
-    ],
-  },
-  {
-    id: "business", en: "Strategic / Business", title: "استراتيجية وأعمال", icon: "target",
-    keywords: ["استراتيجيه", "خطه", "خارطه طريق", "سوق", "منافس", "نموذج عمل", "تحليل", "قرار", "swot", "strategy", "roadmap", "market", "business", "pitch", "plan"],
-    top: ["swot", "roadmap", "strategy", "decisionmatrix", "businessmodel", "pitch"],
-    commands: [
+    ]),
+  V("business", "Strategic / Business", "استراتيجية وأعمال", "target",
+    ["استراتيجيه", "خطه", "خارطه طريق", "سوق", "منافس", "نموذج عمل", "تحليل", "قرار", "swot", "strategy", "roadmap", "market", "business", "pitch", "plan"],
+    ["swot", "roadmap", "strategy", "decisionmatrix", "businessmodel", "pitch"],
+    [
       c("swot", "مصفوفة SWOT", "SWOT visual matrix", "33322332"),
       c("pestle", "تحليل PESTLE", "PESTLE visualization", "33322332"),
       c("fiveforces", "قوى بورتر الخمس", "Porter Five Forces", "33322332"),
@@ -416,8 +405,186 @@ export const CATEGORIES: Category[] = [
       c("pitch", "تنفيذ عرض Pitch", "Pitch visual", "33333333"),
       c("executivebrief", "ملخص تنفيذي", "Executive visual summary", "33322332"),
       c("dashboardanalysis", "تحليل داشبورد", "Visual dashboard analysis", "33221322"),
-    ],
-  },
+    ]),
+
+  /* ============ فئات مهام الذكاء العام ============ */
+  T("coding", "Coding & Development", "البرمجة والتطوير", "gear",
+    ["كود", "برمج", "بايثون", "جافا", "سكريبت", "خطا في الكود", "اختبار", "خوارزم", "قاعده بيانات", "code", "python", "javascript", "debug", "refactor", "script", "sql", "api", "bug", "program"],
+    ["code", "debug", "refactor", "codereview", "unittest", "sqlquery"],
+    [
+      c("code", "اكتب كودًا نظيفًا للمهمة", "Write clean code for the task", "33322333"),
+      c("debug", "تتبع الخطأ وأصلحه مع السبب", "Trace & fix the bug with explanation", "33322333"),
+      c("refactor", "إعادة هيكلة دون تغيير السلوك", "Refactor without changing behavior", "33322332"),
+      c("optimize", "تحسين الأداء والتعقيد", "Optimize performance & complexity", "33322332"),
+      c("unittest", "توليد اختبارات وحدة", "Generate unit tests", "33322332"),
+      c("codeexplain", "شرح الكود سطرًا بسطر", "Explain the code line by line", "33332333"),
+      c("codereview", "مراجعة كود بنقاط قوة وخلل", "Code review with strengths & issues", "33322332"),
+      c("pseudocode", "خوارزمية كود زائف", "Algorithm as pseudocode", "33332233"),
+      c("boilerplate", "هيكل مشروع جاهز", "Ready project scaffold", "33222332"),
+      c("regex", "بناء وفحص تعبير نمطي", "Build & test a regex", "33222332"),
+      c("sqlquery", "كتابة استعلام SQL", "Write a SQL query", "33322333"),
+      c("apidesign", "تصميم REST API", "Design a REST API", "33222332"),
+      c("gitflow", "أوامر Git وسيناريوهات", "Git commands & workflows", "33222332"),
+      c("convertcode", "تحويل كود بين لغات", "Translate code across languages", "33222332"),
+      c("dockerize", "Dockerfile وتشغيل حاويات", "Dockerfile & container setup", "33222332"),
+      c("cronjob", "جدولة مهام دورية", "Schedule recurring tasks", "33222232"),
+      c("securityaudit", "فحص ثغرات أمنية", "Vulnerability scan", "33222322"),
+      c("docstring", "توثيق دوال وواجهات", "Document functions & interfaces", "33322332"),
+      c("algorithms", "شرح وتصميم خوارزميات", "Explain & design algorithms", "33322332"),
+      c("deploy", "خطة نشر وCI/CD", "Deploy plan & CI/CD", "33222322"),
+    ]),
+  T("research", "Research & Sources", "البحث والمصادر", "search",
+    ["بحث", "لخص", "مصدر", "دراسه", "مرجع", "تحقق من", "ورقه علميه", "استقص", "research", "summarize", "sources", "study", "paper", "verify", "citation"],
+    ["research", "summarize", "factcheck", "literature", "tldr", "cite"],
+    [
+      c("research", "بحث شامل متعدد المصادر", "Comprehensive multi-source research", "33333222"),
+      c("summarize", "تلخيص دقيق أمين", "Accurate faithful summary", "33332333"),
+      c("tldr", "خلاصة سطرية سريعة", "Rapid one-line takeaway", "33332333"),
+      c("factcheck", "تحقق من صحة الادعاءات", "Verify claims with sources", "33333222"),
+      c("cite", "توثيق مراجع أكاديمي", "Format citations (APA/MLA/IEEE)", "33322332"),
+      c("literature", "مراجعة أدبيات", "Literature review", "33332332"),
+      c("extract", "استخراج نقاط وبيانات من نص", "Extract points & data from text", "33332333"),
+      c("bibliography", "قائمة مراجع منظمة", "Organized bibliography", "33322332"),
+      c("metaanalysis", "تحليل تلوي للدراسات", "Meta-analysis of studies", "33222232"),
+      c("surveydesign", "تصميم استبيان", "Design a survey", "33322332"),
+      c("arxivscan", "مسح أوراق بحثية حديثة", "Scan recent arXiv papers", "33333222"),
+      c("gapanalysis", "رصد فجوات بحثية", "Identify research gaps", "33322232"),
+      c("sourcerank", "ترتيب مصادر بالمصداقية", "Rank sources by credibility", "33333222"),
+      c("interviewprep", "تحضير أسئلة مقابلة", "Prepare interview questions", "33322332"),
+    ]),
+  T("writing", "Writing & Editing", "الكتابة والتحرير", "pen",
+    ["مقال", "اكتب لي", "صياغه", "تدقيق", "نبره", "رساله بريديه", "سيره ذاتيه", "قصه", "سيناريو", "شعار نصي", "write", "article", "blog", "essay", "proofread", "rewrite", "email", "resume", "story", "script"],
+    ["write", "rewrite", "proofread", "blogpost", "emailcraft", "resume"],
+    [
+      c("write", "كتابة من الصفر بأسلوب محدد", "Write from scratch in a set style", "33322333"),
+      c("rewrite", "إعادة صياغة مع حفظ المعنى", "Rewrite preserving meaning", "33332333"),
+      c("proofread", "تدقيق إملائي ونحوي", "Spelling & grammar check", "33332333"),
+      c("toneadjust", "ضبط النبرة (رسمي/ودود/بيعي)", "Adjust tone (formal/friendly/sales)", "33332333"),
+      c("expandtext", "توسيع نص بإثراء", "Expand with richer detail", "33322333"),
+      c("condensetext", "تكثيف دون فقد الجوهر", "Condense without losing essence", "33332333"),
+      c("outline", "هيكل مقال أو كتاب", "Article/book outline", "33332333"),
+      c("blogpost", "مقال مدونة محسّن للسيو", "SEO-friendly blog post", "33322332"),
+      c("essay", "مقال أكاديمي محكم", "Structured academic essay", "33322332"),
+      c("story", "قصة قصيرة بحبكة", "Short story with plot arc", "33322332"),
+      c("poetry", "شعر موزون أو حر", "Poetry (metered or free verse)", "33222232"),
+      c("scriptwrite", "سيناريو فيديو أو بودكاست", "Video/podcast script", "33322332"),
+      c("emailcraft", "بريد احترافي بهدف واضح", "Professional email with a clear goal", "33332333"),
+      c("coverletter", "خطاب تغطية مخصص", "Tailored cover letter", "33322332"),
+      c("resume", "سيرة ذاتية متوافقة مع ATS", "ATS-friendly resume", "33322332"),
+      c("headlines", "عناوين جذابة متعددة", "Multiple compelling headlines", "33322332"),
+      c("hooks", "خطافات افتتاحية", "Opening hooks", "33322332"),
+      c("ctacopy", "نص دعوة لإجراء", "Call-to-action copy", "33322332"),
+      c("paraphrase", "إعادة صياغة متعددة النسخ", "Multiple paraphrase variants", "33332333"),
+      c("localize", "توطين نص لثقافة أخرى", "Localize text for a culture", "33322332"),
+    ]),
+  T("data", "Data & Analytics", "البيانات والتحليل", "chart",
+    ["بيانات", "اكسل", "تحليل بيانات", "احصا", "توقعات", "تنظيف بيانات", "csv", "مؤشرات", "data", "excel", "analytics", "statistics", "forecast", "csv", "kpi", "dashboard data"],
+    ["analyzedata", "cleandata", "dataviz", "statistics", "forecast", "sentiment"],
+    [
+      c("analyzedata", "تحليل استكشافي للبيانات", "Exploratory data analysis", "33322332"),
+      c("cleandata", "تنظيف ومعالجة قيم ناقصة", "Clean & handle missing values", "33322332"),
+      c("dataviz", "اقتراح رسوم بيانية مناسبة", "Suggest the right charts", "33322332"),
+      c("statistics", "اختبارات إحصائية وتفسير", "Statistical tests & interpretation", "33322332"),
+      c("forecast", "تنبؤات واتجاهات", "Forecasts & trends", "33322332"),
+      c("kpis", "تعريف مؤشرات أداء", "Define KPIs", "33322332"),
+      c("etl", "خط استخراج وتحويل وتحميل", "Extract-transform-load pipeline", "33222332"),
+      c("segmentation", "تقسيم عملاء أو بيانات", "Customer/data segmentation", "33322332"),
+      c("abtest", "تصميم اختبار A/B", "Design an A/B test", "33322332"),
+      c("regression", "نموذج انحدار وتفسير", "Regression model & interpretation", "33222332"),
+      c("sentiment", "تحليل مشاعر نصوص", "Text sentiment analysis", "33322332"),
+      c("scraping", "خطة سحب بيانات أخلاقية", "Ethical scraping plan", "33222332"),
+      c("spreadsheet", "معادلات جداول متقدمة", "Advanced spreadsheet formulas", "33322333"),
+      c("pivottable", "جداول محورية وملخصات", "Pivot tables & rollups", "33322332"),
+      c("datareport", "تقرير بيانات تنفيذي", "Executive data report", "33322332"),
+    ]),
+  T("marketing", "Marketing & Growth", "التسويق والنمو", "megaphone",
+    ["تسويق", "سيو", "حملات اعلانيه", "جمهور مستهدف", "محتوى تسويقي", "علامه تجاريه", "قمع بيع", "marketing", "seo", "ads", "campaign", "audience", "brand", "funnel", "growth"],
+    ["seo", "adscopy", "funnel", "buyerpersona", "contentcalendar", "landingpage"],
+    [
+      c("seo", "تحسين محركات البحث", "Search engine optimization", "33333222"),
+      c("keywords", "بحث كلمات مفتاحية", "Keyword research", "33333222"),
+      c("adscopy", "نصوص إعلانية متعددة النسخ", "Multi-variant ad copy", "33322332"),
+      c("funnel", "قمع تسويقي كامل", "Full marketing funnel", "33322332"),
+      c("buyerpersona", "شخصية عميل تفصيلية", "Detailed buyer persona", "33322332"),
+      c("competitors", "تحليل منافسين", "Competitor analysis", "33333222"),
+      c("emailcampaign", "سلسلة رسائل بريدية", "Email drip sequence", "33322332"),
+      c("contentcalendar", "تقويم محتوى شهري", "Monthly content calendar", "33322332"),
+      c("growthloop", "حلقات نمو", "Growth loops", "33222232"),
+      c("brandvoice", "دليل صوت العلامة", "Brand voice guide", "33322332"),
+      c("landingpage", "هيكل صفحة هبوط", "Landing page structure", "33322332"),
+      c("utmplan", "خطة تتبع UTM", "UTM tracking plan", "33222232"),
+      c("retargeting", "استراتيجية إعادة استهداف", "Retargeting strategy", "33222232"),
+      c("influencerbrief", "موجز تعاون مع مؤثرين", "Influencer brief", "33222332"),
+    ]),
+  T("bizops", "Management & Business Ops", "الإدارة والأعمال", "briefcase",
+    ["خطه عمل", "نموذج مالي", "تسعير", "ميزانيه", "تدفق نقدي", "تقييم شركه", "تفاوض", "عقد", "فاتوره", "اهداف", "business plan", "financial", "pricing", "budget", "cashflow", "valuation", "negotiate", "contract", "okr"],
+    ["businessplan", "financialmodel", "pitchdeck", "pricingstrategy", "okr", "cashflow"],
+    [
+      c("businessplan", "خطة عمل متكاملة", "Complete business plan", "33322332"),
+      c("financialmodel", "نموذج مالي ثلاثي القوائم", "Three-statement financial model", "33222232"),
+      c("pitchdeck", "هيكل عرض استثماري", "Investor pitch deck structure", "33322332"),
+      c("pricingstrategy", "استراتيجية تسعير", "Pricing strategy", "33322332"),
+      c("okr", "أهداف ونتائج رئيسية OKR", "Objectives & key results", "33322332"),
+      c("budgetplan", "ميزانية تشغيلية", "Operating budget", "33322332"),
+      c("cashflow", "تدفق نقدي وتوقعات", "Cash flow & projections", "33222332"),
+      c("valuation", "تقييم شركة", "Company valuation", "33222232"),
+      c("marketresearch", "دراسة سوق", "Market study", "33333222"),
+      c("negotiation", "سيناريو تفاوض وحجج", "Negotiation script & leverage", "33322332"),
+      c("contractdraft", "مسودة بنود تعاقدية", "Draft contract clauses", "33222332"),
+      c("invoicetpl", "قالب فاتورة احترافي", "Professional invoice template", "33322332"),
+    ]),
+  T("education", "Education & Learning", "التعليم والتعلم", "book",
+    ["اشرح لي", "درس", "منهج", "مذاكره", "امتحان", "حفظ", "مذكرات", "خطه دراسيه", "تدريس", "teach me", "lesson", "study", "exam", "curriculum", "tutor", "notes"],
+    ["tutor", "explainconcept", "studyplan", "ankicards", "examprep", "lessonplan"],
+    [
+      c("tutor", "معلم خصوصي تفاعلي", "Interactive personal tutor", "33332333"),
+      c("explainconcept", "شرح مفهوم بمستويات", "Explain a concept at levels", "33332333"),
+      c("studyplan", "خطة مذاكرة أسبوعية", "Weekly study plan", "33322333"),
+      c("notemaking", "ملاحظات كورنيل وخرائط", "Cornell notes & mapping", "33332333"),
+      c("ankicards", "بطاقات استذكار Anki", "Anki flashcards", "33322332"),
+      c("mnemonics", "وسائل تذكير وحفظ", "Mnemonics & memory hooks", "33322332"),
+      c("homework", "حل واجب بخطوات", "Homework with steps", "33322333"),
+      c("examprep", "تحضير امتحان بأسئلة", "Exam prep with questions", "33322332"),
+      c("curriculum", "منهج تعليمي متدرج", "Progressive curriculum", "33322332"),
+      c("rubric", "معايير تقييم", "Grading rubric", "33322332"),
+      c("lessonplan", "خطة حصة تعليمية", "Lesson plan", "33322332"),
+      c("spacedrep", "جدول تكرار متباعد", "Spaced-repetition schedule", "33322332"),
+    ]),
+  T("productivity", "Productivity & Organization", "الإنتاجية والتنظيم", "list",
+    ["خطه يومي", "اولويات", "جدول اعمال", "قائمه مهام", "اجتماع", "محضر", "عادات", "يوميات", "تنظيم وقت", "تفويض", "plan my", "prioritize", "schedule", "todo", "meeting", "agenda", "habits", "journal", "time management"],
+    ["plan", "prioritize", "schedule", "todo", "agenda", "checklist"],
+    [
+      c("plan", "خطة تنفيذية بمراحل", "Phased execution plan", "33332333"),
+      c("prioritize", "ترتيب أولويات (أيزنهاور)", "Prioritize (Eisenhower matrix)", "33332333"),
+      c("schedule", "جدول زمني واقعي", "Realistic schedule", "33332333"),
+      c("todo", "قائمة مهام قابلة للتنفيذ", "Actionable to-do list", "33332333"),
+      c("agenda", "جدول أعمال اجتماع", "Meeting agenda", "33332333"),
+      c("minutes", "محضر اجتماع وقرارات", "Meeting minutes & decisions", "33332333"),
+      c("decisionlog", "سجل قرارات ومبررات", "Decision log & rationale", "33322332"),
+      c("habittrack", "متابعة عادات", "Habit tracking", "33322332"),
+      c("journaling", "يوميات تأمل موجهة", "Guided reflective journaling", "33322332"),
+      c("retro", "مراجعة رجعية للفريق", "Retrospective format", "33322332"),
+      c("kanban", "لوحة كانبان", "Kanban board", "33322332"),
+      c("timeblock", "تقسيم الوقت بالكتل", "Time blocking", "33322332"),
+      c("delegation", "خطة تفويض مهام", "Task delegation plan", "33322332"),
+      c("checklist", "قوائم تحقق تشغيلية", "Operational checklists", "33332333"),
+      c("weeklyreview", "مراجعة أسبوعية", "Weekly review", "33332333"),
+    ]),
+  T("languages", "Translation & Languages", "الترجمة واللغات", "globe",
+    ["ترجم نص", "ترجمه احترافيه", "قواعد اللغه", "معجم", "لهجه", "ترجمه فيديو", "تعلم لغه", "translate text", "localization", "grammar", "glossary", "dialect", "subtitle", "language"],
+    ["translatepro", "grammarfix", "glossary", "styleguide", "subtitling", "languagecoach"],
+    [
+      c("translatepro", "ترجمة احترافية تحفظ الأسلوب", "Professional translation preserving style", "33332333"),
+      c("localizeui", "توطين واجهات وتطبيقات", "UI/app localization", "33322332"),
+      c("grammarfix", "تصحيح قواعد مع شرح", "Grammar fix with explanation", "33332333"),
+      c("styleguide", "دليل أسلوب كتابة", "Writing style guide", "33322332"),
+      c("glossary", "مسرد مصطلحات ثنائي اللغة", "Bilingual glossary", "33322332"),
+      c("dialect", "تحويل بين الفصحى واللهجات", "Formal ↔ dialect conversion", "32322332"),
+      c("subtitling", "ترجمة فيديو بتوقيتات", "Subtitle with timings", "33322332"),
+      c("transliterate", "نقحرة أسماء ومصطلحات", "Transliteration", "33222332"),
+      c("languagecoach", "خطة تعلم لغة", "Language learning plan", "33322332"),
+      c("idioms", "أمثلة وتعابير بسياقها", "Idioms in context", "33322332"),
+    ]),
 ];
 
 /* الأسماء المرتبطة (Aliases) */
@@ -434,6 +601,15 @@ export const RELATED: Record<string, string> = {
   filmstill: "cinematic",
   visualize: "diagram", processmap: "flowchart",
   headshot: "portrait", droneview: "aerial",
+  /* aliases مهام */
+  explaincode: "codeexplain", fixbug: "debug", tests: "unittest", docker: "dockerize",
+  summarizepaper: "summarize", references: "bibliography", sources: "sourcerank", factcheck2: "factcheck",
+  copywriting: "adscopy", ads: "adscopy", contentplan: "contentcalendar", persona: "buyerpersona",
+  cv: "resume", article: "blogpost", grammar: "grammarfix", translatetext: "translatepro",
+  meetingnotes: "minutes", tasks: "todo", timetable: "schedule", goals: "okr",
+  study: "studyplan", teach: "tutor", exam: "examprep",
+  excel: "spreadsheet", charts: "dataviz", cleanup: "cleandata",
+  invoice: "invoicetpl", negotiate: "negotiation", financial: "financialmodel",
 };
 
 /* ماكروهات الدمج */
@@ -469,6 +645,14 @@ export const MACROS: { combo: string; ar: string; en: string }[] = [
   { combo: "/ecosystem + /network", ar: "خريطة نظام بيئي/شبكة", en: "Ecosystem/network map" },
   { combo: "/dashboard + /infographic", ar: "داشبورد تنفيذي", en: "Executive visual dashboard" },
   { combo: "/map + /heatmap", ar: "خريطة كثافة جغرافية", en: "Geographic intensity map" },
+  { combo: "/code + /unittest", ar: "كود مع اختبارات وحدة", en: "Code with unit tests" },
+  { combo: "/debug + /codereview", ar: "إصلاح مع مراجعة شاملة", en: "Fix plus full review" },
+  { combo: "/research + /cite", ar: "بحث موثق بالمراجع", en: "Research with citations" },
+  { combo: "/seo + /keywords", ar: "سيو مع كلمات مفتاحية", en: "SEO with keyword set" },
+  { combo: "/businessplan + /financialmodel", ar: "خطة عمل مع نموذج مالي", en: "Business plan with financial model" },
+  { combo: "/outline + /blogpost", ar: "هيكل ثم مقال كامل", en: "Outline then full post" },
+  { combo: "/cleandata + /dataviz", ar: "تنظيف ثم رسم بياني", en: "Clean then visualize" },
+  { combo: "/prioritize + /schedule", ar: "أولويات ثم جدول زمني", en: "Priorities then schedule" },
 ];
 
 /* مكتبة Core 64 */
