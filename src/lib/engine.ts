@@ -843,22 +843,18 @@ function buildNegative(a: Analysis): string {
 }
 
 /* ================= اقتراحات جاهزة ================= */
-export const SUGGESTIONS: { label: Bi; text: Bi }[] = [
-  { label: { ar: "انفوجرافيك أيزومتري", en: "Isometric infographic" }, text: { ar: "اعمل انفوجرافيك يشرح دورة الماء في الطبيعة بأسلوب ايزومتري مع ألوان هادئة", en: "Create an infographic explaining the water cycle in an isometric style with calm colors" } },
-  { label: { ar: "تفكيك هندسي", en: "Engineering teardown" }, text: { ar: "أحتاج exploded view لمحرك سيارة بأسلوب blueprint مع أبعاد وقياسات", en: "I need an exploded view of a car engine in blueprint style with dimensions and measurements" } },
-  { label: { ar: "بورتريه سينمائي", en: "Cinematic portrait" }, text: { ar: "بورتريه سينمائي لامرأة تحت المطر بإضاءة نيون وعمق ميدان ضحل", en: "Cinematic portrait of a woman in the rain with neon lighting and shallow depth of field" } },
-  { label: { ar: "صلّح كود بايثون", en: "Fix Python code" }, text: { ar: "عندي سكربت بايثون يطلع خطأ في التعامل مع الملفات، صلحه واكتب اختبارات وحدة", en: "My Python script throws a file-handling error — fix it and write unit tests" } },
-  { label: { ar: "بحث موثق", en: "Cited research" }, text: { ar: "ابحث عن أحدث تطورات الطاقة الشمسية مع مصادر موثوقة ولخص النتائج", en: "Research the latest solar-energy developments with credible sources and summarize" } },
-  { label: { ar: "خطة عمل", en: "Business plan" }, text: { ar: "اكتب خطة عمل لمقهى متخصص مع نموذج مالي مبسط واستراتيجية تسعير", en: "Write a business plan for a specialty café with a simple financial model and pricing strategy" } },
-  { label: { ar: "مقال SEO", en: "SEO article" }, text: { ar: "اكتب مقال عن الذكاء الاصطناعي في التعليم محسّن للسيو مع عناوين جذابة", en: "Write an SEO-optimized article on AI in education with compelling headlines" } },
-  { label: { ar: "تنظيف بيانات", en: "Data cleaning" }, text: { ar: "نظف ملف CSV فيه قيم ناقصة واقترح رسومًا بيانية مناسبة للعرض", en: "Clean a CSV with missing values and suggest the right charts for presentation" } },
-  { label: { ar: "ترجمة احترافية", en: "Pro translation" }, text: { ar: "ترجم نص العقد إلى الإنجليزية ترجمة احترافية مع مسرد مصطلحات", en: "Translate the contract text into professional English with a glossary of terms" } },
-  { label: { ar: "ترميم صورة", en: "Photo restoration" }, text: { ar: "أريد ترميم وتلوين صورة عائلية قديمة مع تحسين الدقة", en: "Restore and colorize an old family photo with resolution enhancement" } },
-  { label: { ar: "إصلاح كود بايثون", en: "Debug Python" }, text: { ar: "أريد إصلاح خطأ في سكريبت بايثون وكتابة اختبارات وحدة له", en: "Debug a Python script and generate unit tests for it" } },
-  { label: { ar: "بحث موثق", en: "Cited research" }, text: { ar: "أريد بحثًا موثقًا بالمصادر عن أحدث اتجاهات الذكاء الاصطناعي", en: "Research the latest AI trends with cited sources" } },
-  { label: { ar: "مقال SEO", en: "SEO article" }, text: { ar: "اكتب مقالًا تسويقيًا محسّنًا لمحركات البحث عن السيارات الكهربائية", en: "Write an SEO-friendly marketing article about electric cars" } },
-  { label: { ar: "تحليل بيانات", en: "Data analysis" }, text: { ar: "حلّل بيانات مبيعات شهرية من ملف Excel واقترح داشبورد مؤشرات", en: "Analyze monthly sales data from an Excel file and propose a KPI dashboard" } },
-  { label: { ar: "خطة دراسة", en: "Study plan" }, text: { ar: "ضع لي خطة مذاكرة أسبوعية لامتحان مع بطاقات استذكار", en: "Build a weekly study plan for an exam with flashcards" } },
+export const SUGGESTIONS: { label: Bi; text: Bi; kind: "visual" | "task" }[] = [
+  { label: { ar: "انفوجرافيك أيزومتري", en: "Isometric infographic" }, text: { ar: "اعمل انفوجرافيك يشرح دورة الماء في الطبيعة بأسلوب ايزومتري مع ألوان هادئة", en: "Create an infographic explaining the water cycle in an isometric style with calm colors" }, kind: "visual" },
+  { label: { ar: "تفكيك هندسي", en: "Engineering teardown" }, text: { ar: "أحتاج exploded view لمحرك سيارة بأسلوب blueprint مع أبعاد وقياسات", en: "I need an exploded view of a car engine in blueprint style with dimensions and measurements" }, kind: "visual" },
+  { label: { ar: "بورتريه سينمائي", en: "Cinematic portrait" }, text: { ar: "بورتريه سينمائي لامرأة تحت المطر بإضاءة نيون وعمق ميدان ضحل", en: "Cinematic portrait of a woman in the rain with neon lighting and shallow depth of field" }, kind: "visual" },
+  { label: { ar: "ترميم صورة", en: "Photo restoration" }, text: { ar: "أريد ترميم وتلوين صورة عائلية قديمة مع تحسين الدقة", en: "Restore and colorize an old family photo with resolution enhancement" }, kind: "visual" },
+  { label: { ar: "إصلاح كود بايثون", en: "Debug Python" }, text: { ar: "أريد إصلاح خطأ في سكريبت بايثون وكتابة اختبارات وحدة له", en: "Debug a Python script and generate unit tests for it" }, kind: "task" },
+  { label: { ar: "بحث موثق", en: "Cited research" }, text: { ar: "أريد بحثًا موثقًا بالمصادر عن أحدث اتجاهات الذكاء الاصطناعي", en: "Research the latest AI trends with cited sources" }, kind: "task" },
+  { label: { ar: "مقال SEO", en: "SEO article" }, text: { ar: "اكتب مقالًا تسويقيًا محسّنًا لمحركات البحث عن السيارات الكهربائية", en: "Write an SEO-friendly marketing article about electric cars" }, kind: "task" },
+  { label: { ar: "تحليل بيانات", en: "Data analysis" }, text: { ar: "حلّل بيانات مبيعات شهرية من ملف Excel واقترح داشبورد مؤشرات", en: "Analyze monthly sales data from an Excel file and propose a KPI dashboard" }, kind: "task" },
+  { label: { ar: "خطة عمل", en: "Business plan" }, text: { ar: "اكتب خطة عمل لمقهى متخصص مع نموذج مالي مبسط واستراتيجية تسعير", en: "Write a business plan for a specialty café with a simple financial model and pricing strategy" }, kind: "task" },
+  { label: { ar: "ترجمة احترافية", en: "Pro translation" }, text: { ar: "ترجم نص العقد إلى الإنجليزية ترجمة احترافية مع مسرد مصطلحات", en: "Translate the contract text into professional English with a glossary of terms" }, kind: "task" },
+  { label: { ar: "خطة دراسة", en: "Study plan" }, text: { ar: "ضع لي خطة مذاكرة أسبوعية لامتحان مع بطاقات استذكار", en: "Build a weekly study plan for an exam with flashcards" }, kind: "task" },
 ];
 
 export const DECLINE_CHIPS: Bi[] = [

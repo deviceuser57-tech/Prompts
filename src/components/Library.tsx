@@ -20,24 +20,24 @@ export function Library({ onAsk, onRequestCommand }: { onAsk: (text: string) => 
     }
   }, [sel]);
 
+  const [kind, setKind] = useState<"all" | "visual" | "task">("all");
+
   const results = useMemo(() => {
     const nq = q.trim().toLowerCase();
     return ALL_COMMANDS.filter((cm) => {
+      const hit = COMMAND_INDEX.get(cm.name)!;
+      if (kind !== "all" && hit.cat.kind !== kind) return false;
       if (coreOnly && !CORE64.has(cm.name)) return false;
-      if (cat !== "all") {
-        const ct = COMMAND_INDEX.get(cm.name)?.cat.id;
-        if (ct !== cat) return false;
-      }
+      if (cat !== "all" && hit.cat.id !== cat) return false;
       if (!nq) return true;
       return cm.name.includes(nq) || cm.fn.includes(nq) || cm.en.toLowerCase().includes(nq) || ("/" + cm.name).includes(nq);
     });
-  }, [q, cat, coreOnly]);
+  }, [q, cat, coreOnly, kind]);
 
-  const cats = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const cm of ALL_COMMANDS) m.set(COMMAND_INDEX.get(cm.name)!.cat.id, (m.get(COMMAND_INDEX.get(cm.name)!.cat.id) ?? 0) + 1);
-    return CATEGORIES.map((c) => ({ ...c, n: m.get(c.id) ?? 0 }));
-  }, []);
+  const cats = useMemo(
+    () => CATEGORIES.map((c) => ({ ...c, n: c.commands.length })).filter((c) => kind === "all" || c.kind === kind),
+    [kind]
+  );
 
   const selInfo = useMemo(() => {
     if (!sel) return null;
@@ -63,7 +63,33 @@ export function Library({ onAsk, onRequestCommand }: { onAsk: (text: string) => 
           <h2 className="font-display font-bold text-[15px]">{t("libTitle")}</h2>
           <span className="ms-auto font-mono text-[10px] text-dim dir-ltr">{results.length} cmd</span>
         </div>
-        <p className="text-[10.5px] text-dim -mt-1 mb-2.5">{t("libSub")}</p>
+        <p className="text-[10.5px] text-dim -mt-1 mb-1.5">{t("libSub")}</p>
+        <div className="flex items-center gap-3 mb-2.5 text-[9.5px] text-dim">
+          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-teal" /> {t("kindVisual")}</span>
+          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-coral" /> {t("kindTask")}</span>
+        </div>
+
+        {/* فاصل المحور */}
+        <div className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-panel2/50 p-1 mb-2.5">
+          {(["all", "visual", "task"] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => { setKind(k); setCat("all"); }}
+              className={`btn-press rounded-md py-1.5 text-[11px] font-semibold transition-colors border ${
+                kind === k
+                  ? k === "task"
+                    ? "bg-coral/15 text-coral border-coral/50"
+                    : k === "visual"
+                      ? "bg-teal/15 text-teal border-teal/50"
+                      : "bg-amber/15 text-amber border-amber/50"
+                  : "text-mute hover:text-ink border-transparent"
+              }`}
+            >
+              {k === "all" ? t("kindAll") : k === "visual" ? t("kindVisual") : t("kindTask")}
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center gap-2 rounded-lg border border-line bg-panel2/60 px-3 focus-within:border-teal/60 transition-colors">
           <Icon name="search" className="w-4 h-4 text-dim shrink-0" />
           <input
@@ -84,7 +110,8 @@ export function Library({ onAsk, onRequestCommand }: { onAsk: (text: string) => 
               {t("allCats")}
             </button>
             {cats.map((c) => (
-              <button key={c.id} onClick={() => setCat(cat === c.id ? "all" : c.id)} className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] transition-colors ${cat === c.id ? "border-teal/60 bg-teal/15 text-teal font-semibold" : "border-line bg-panel2/50 text-mute hover:text-ink"}`}>
+              <button key={c.id} onClick={() => setCat(cat === c.id ? "all" : c.id)} className={`shrink-0 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] transition-colors ${cat === c.id ? (c.kind === "task" ? "border-coral/60 bg-coral/15 text-coral font-semibold" : "border-teal/60 bg-teal/15 text-teal font-semibold") : "border-line bg-panel2/50 text-mute hover:text-ink"}`}>
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${c.kind === "task" ? "bg-coral" : "bg-teal"}`} />
                 {L({ ar: c.title, en: c.en })} <span className="opacity-60">{c.n}</span>
               </button>
             ))}
@@ -108,14 +135,17 @@ export function Library({ onAsk, onRequestCommand }: { onAsk: (text: string) => 
           {results.map((cm) => {
             const hit = COMMAND_INDEX.get(cm.name)!;
             const core = CORE64.has(cm.name);
+            const isTask = hit.cat.kind === "task";
             return (
-              <button key={cm.name} onClick={() => setSel(cm)} className="chip-cmd w-full text-start rounded-lg border border-line bg-panel2/30 px-3 py-2.5 flex items-center gap-2.5 hover:border-teal/50 hover:bg-teal/5 transition-colors group">
-                <code className="shrink-0 font-mono text-[11.5px] font-semibold text-teal dir-ltr">/{cm.name}</code>
+              <button key={cm.name} onClick={() => setSel(cm)} className={`chip-cmd w-full text-start rounded-lg border border-line bg-panel2/30 px-3 py-2.5 flex items-center gap-2.5 transition-colors group ${isTask ? "hover:border-coral/50 hover:bg-coral/5" : "hover:border-teal/50 hover:bg-teal/5"}`}>
+                <code className={`shrink-0 font-mono text-[11.5px] font-semibold dir-ltr ${isTask ? "text-coral" : "text-teal"}`}>/{cm.name}</code>
                 <span className="flex-1 min-w-0 text-[11.5px] text-mute truncate group-hover:text-ink transition-colors">
                   {L({ ar: cm.fn, en: cm.en })}
                 </span>
                 {core && <span className="shrink-0 text-[8.5px] border border-amber/50 text-amber rounded px-1 py-0.5 bg-amber/10 font-bold">64</span>}
-                <span className="shrink-0 text-[9px] text-dim hidden sm:block">{L({ ar: hit.cat.title, en: hit.cat.en })}</span>
+                <span className={`shrink-0 text-[8.5px] rounded px-1 py-0.5 border font-semibold ${isTask ? "text-coral border-coral/40 bg-coral/10" : "text-teal border-teal/40 bg-teal/10"}`}>
+                  {isTask ? t("kindTask") : t("kindVisual")}
+                </span>
               </button>
             );
           })}
