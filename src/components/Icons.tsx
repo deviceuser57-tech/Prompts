@@ -87,6 +87,13 @@ const PATHS: Record<string, React.ReactNode> = {
   expand: <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />,
   shuffle: <path d="M3.5 6.5h3l11 11h3M20.5 17.5l-3 3 3-3-3-3M3.5 17.5h3l3.2-3.2M13.8 9.7l3.7-3.2h3M20.5 6.5l-3 3 3-3-3-3" />,
   crown: <path d="M3.5 8l4 3.5L12 5l4.5 6.5L20.5 8l-1.7 10.5H5.2L3.5 8zM5.2 18.5h13.6" />,
+  moon: <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />,
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="8.8" />
+      <path d="M3.2 12h17.6M12 3.2c2.6 2.3 3.9 5.2 3.9 8.8s-1.3 6.5-3.9 8.8c-2.6-2.3-3.9-5.2-3.9-8.8s1.3-6.5 3.9-8.8z" />
+    </>
+  ),
 };
 
 export function Icon({ name, className = "w-5 h-5", strokeWidth = 1.8 }: IconProps) {
