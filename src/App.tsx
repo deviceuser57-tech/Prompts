@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { ALL_COMMANDS, CATEGORIES, CORE64, MACROS, MODELS, TASK_ENGINES } from "./data/commands";
-import { analyze, buildPrompt, commandInfo, isCommandQuery, SUGGESTIONS, DECLINE_CHIPS } from "./lib/engine";
+import { analyze, buildPrompt, commandInfo, isCommandQuery, SUGGESTIONS, DECLINE_CHIPS, TASK_DECLINE_CHIPS } from "./lib/engine";
 import { AppProvider, useApp } from "./lib/i18n";
 import type { Msg, AttachedFile } from "./types";
 import { MessageView, TypingRow, useAutoScroll, Composer } from "./components/Chat";
@@ -183,13 +183,15 @@ function Shell() {
   }, [msgs, push, withTyping]);
 
   const declineAnalysis = useCallback((msgId: string) => {
+    const target = msgs.find((m) => m.id === msgId);
+    const kind = target?.analysis?.kind;
     setMsgs((p) => p.map((m) => (m.id === msgId ? { ...m, answered: "no" as const } : m)));
     withTyping(900, () => push({
       id: uid(), role: "assistant", kind: "text", ts: Date.now(),
       text: t("declineTitle"),
-      chips: DECLINE_CHIPS.map((c) => L(c)),
+      chips: (kind === "task" ? TASK_DECLINE_CHIPS : DECLINE_CHIPS).map((c) => L(c)),
     }));
-  }, [push, withTyping, t, L]);
+  }, [msgs, push, withTyping, t, L]);
 
   const askCommand = useCallback((name: string) => {
     const clean = name.trim();

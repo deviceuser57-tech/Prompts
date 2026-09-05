@@ -280,6 +280,8 @@ const SUBJECT_MAP: [string, string][] = [
 export interface FeatureFlags {
   text: boolean; arabicText: boolean; photo: boolean; edit: boolean; multi: boolean; consistency: boolean;
   count: number | null; countNote: Bi; ratio: string | null; ratioNote: Bi;
+  format: Bi;
+  fileNames: string[];
 }
 export interface PickedCommand { cmd: CommandDef; catId: string; catTitle: string; catEn: string; catKind: "visual" | "task"; explicit: boolean; }
 export interface ModelScore { modelId: string; name: string; ar: string; hue: string; score: number; pct: number; reasons: Bi[]; st: string; stAr: string; }
@@ -399,6 +401,7 @@ export function analyze(raw: string, files?: FileHint[]): Analysis | null {
     multi: ["storyboard", "carousel", "360view", "multiview", "characterturnaround", "sceneplan", "shotlist", "flashcards", "thenvsnow"].some((n) => cmdScore.has(n)),
     consistency: usedCats.has("consistency"),
     count: null, countNote: { ar: "", en: "" }, ratio: null, ratioNote: { ar: "", en: "" },
+    format: { ar: "", en: "" }, fileNames: files ? files.map((f) => f.name) : [],
   };
 
   const numStr = norm.replace(/[٠-٩]/g, (d) => String(AR_NUMS[d]));
@@ -435,6 +438,7 @@ export function analyze(raw: string, files?: FileHint[]): Analysis | null {
       languages: { ar: "نص مترجم + مسرد مصطلحات", en: "translated text + glossary" },
     };
     const f = FORMATS[topTaskCat] ?? FORMATS.writing;
+    features.format = f;
     features.ratio = f.ar; features.ratioNote = { ar: "صيغة التسليم", en: f.en };
   } else {
     /* عدد الصور */
@@ -463,6 +467,7 @@ export function analyze(raw: string, files?: FileHint[]): Analysis | null {
     else if (/(بوستر|غلاف|بروشور|poster|cover)/.test(norm) || cmdScore.has("poster") || cmdScore.has("cover")) { features.ratio = "2:3"; features.ratioNote = { ar: "طولي للمطبوعات", en: "portrait for print" }; }
     else if (cmdScore.has("floorplan") || cmdScore.has("siteplan")) { features.ratio = "4:3"; features.ratioNote = { ar: "مناسب للمساقط", en: "suited to plans" }; }
     else { features.ratio = "16:9"; features.ratioNote = { ar: "افتراضي واسع", en: "wide default" }; }
+    features.format = { ar: "PNG/JPG عالية الجودة", en: "High-quality PNG/JPG" };
   }
 
   /* ================= تقييم المحركات على المحور النشط ================= */
@@ -747,6 +752,15 @@ export function buildPrompt(a: Analysis): BuiltPrompt {
     ? { ar: count > 1 ? "مخرجات" : "مخرَج", en: count > 1 ? "deliverables" : "deliverable" }
     : { ar: count > 1 ? "صور" : "صورة", en: count > 1 ? "images" : "image" };
 
+  /* ================= أقسام البروتوكول ================= */
+  const filesLine = a.features.fileNames.length
+    ? { ar: `[FILES]: ${a.features.fileNames.join("، ")} — مرفقات يجب دمجها في العمل\n`, en: `[FILES]: ${a.features.fileNames.join(", ")} — attachments to be folded into the work\n` }
+    : { ar: "", en: "" };
+
+  const lockVars = isTask
+    ? { ar: "1. [INPUTS] — المعطيات والمرفقات\n2. [GOAL] — الهدف المطلوب\n3. [STACK] — تركيبة الأوامر\n4. [OUTPUT] — عدد المخرجات وصيغتها", en: "1. [INPUTS] — given material & attachments\n2. [GOAL] — the required outcome\n3. [STACK] — command stack\n4. [OUTPUT] — deliverable count & format" }
+    : { ar: "1. [SUBJECT] — الموضوع الرئيسي\n2. [DETAILS] — تفاصيل الموجز الإضافية\n3. [STACK] — تركيبة الأوامر\n4. [COUNT] — عدد الصور وأبعادها", en: "1. [SUBJECT] — the main subject\n2. [DETAILS] — extra brief details\n3. [STACK] — command stack\n4. [COUNT] — image count & aspect ratio" };
+
   const sections: PromptSection[] = [
     {
       h: { ar: isTask ? "المساعد الموصى به" : "النموذج الموصى به", en: isTask ? "Recommended assistant" : "Recommended model" },
@@ -756,73 +770,164 @@ export function buildPrompt(a: Analysis): BuiltPrompt {
       },
     },
     {
-      h: { ar: "الشخصية (Persona)", en: "Persona" },
+      h: { ar: "🔐 قاعدة الثبات (البروتوكول)", en: "🔐 Lock rule (protocol)" },
       body: {
-        ar: `يتقمص المساعد دور: ${persona.ar}.\nأنت تنفذ موجزًا دقيقًا — لا ترتجل خارج الحدود التالية.`,
-        en: `You are ${persona.en}, executing a precise brief — not improvising beyond the boundaries below.`,
+        ar: `هذا البرومبت إطار تنفيذي ثابت ودقيق لطلبك.\nالمتغيرات الوحيدة المسموح بتغييرها عند كل استخدام:\n${lockVars.ar}\nلا يجوز حذف أو إعادة ترتيب أو تعديل أي جزء آخر إلا بتعليمات صريحة من المستخدم.`,
+        en: `This prompt is a fixed, disciplined execution protocol for this request.\nThe only variables allowed to change per run:\n${lockVars.en}\nNo other part may be removed, reordered, or altered without explicit user instruction.`,
       },
     },
     {
-      h: { ar: "المطلوب (Task)", en: "Task" },
+      h: { ar: "🧩 مدخلات التنفيذ", en: "🧩 Execution inputs" },
+      body: isTask ? {
+        ar: `[INPUTS]: ${a.userText}\n${filesLine.ar}[GOAL]: ${a.subjectAr ? `«${a.subjectAr}»` : "الهدف كما ورد في الطلب"}\n[STACK]: ${a.stackLine}\n[OUTPUT]: ${count} ${countNoun.ar} — ${a.features.format.ar}\nإذا تُرك حقل فارغًا فلا تخترع معطيات غير موجودة — اعمل فقط بما تسمح به الأدلة المتاحة.`,
+        en: `[INPUTS]: ${a.userText}\n${filesLine.en}[GOAL]: ${subjectEn}\n[STACK]: ${a.stackLine}\n[OUTPUT]: ${count} ${countNoun.en} — ${a.features.format.en}\nIf a field is left empty, do not invent missing material — work only with the available evidence.`,
+      } : {
+        ar: `[SUBJECT]: ${a.subjectAr ? `«${a.subjectAr}»` : "الموضوع كما ورد في الموجز"}\n[DETAILS]: ${a.userText}\n${filesLine.ar}[STACK]: ${a.stackLine}\n[COUNT]: ${count} ${countNoun.ar} — ${ratio}\nإذا تُرك حقل فارغًا فلا تخترع عناصر غير موجودة — نفّذ ما يدعمه الموجز فقط.`,
+        en: `[SUBJECT]: ${subjectEn}\n[DETAILS]: ${a.userText}\n${filesLine.en}[STACK]: ${a.stackLine}\n[COUNT]: ${count} ${countNoun.en} — ${ratio}\nIf a field is left empty, do not invent elements — render only what the brief supports.`,
+      },
+    },
+    {
+      h: { ar: "🎭 طبيعة المهمة (الشخصية)", en: "🎭 Nature of the task (persona)" },
       body: {
-        ar: `تنفيذ ${count > 1 ? `سلسلة من ${count} ${countNoun.ar} مترابطة` : `${countNoun.ar} واحد متكامل`} لـ${a.subjectAr ? `«${a.subjectAr}»` : "الموضوع الموصوف في الطلب"} ضمن مجال: ${a.cats.map((c) => c.title).join(" + ")}.\nكل التفاصيل التالية إلزامية وليست اقتراحات.`,
-        en: `Produce ${count > 1 ? `a coherent series of ${count} ${countNoun.en}` : `one complete ${countNoun.en}`} for ${subjectEn}.\nDomain: ${a.cats.map((c) => c.en).join(" + ")}.\nEvery detail below is mandatory, not suggestive.`,
+        ar: `تتقمص دور: ${persona.ar}.\nمهمتك تنفيذ موجز ${isTask ? "منهجي دقيق" : "بصري دقيق"} ضمن مجال: ${a.cats.map((c) => c.title).join(" + ")}.\nلست هنا لتفسير الطلب من عندك ولا لإضافة ما لم يُطلب — كل التفاصيل التالية إلزامية.`,
+        en: `You are ${persona.en}.\nYour job: execute a precise ${isTask ? "methodological" : "visual"} brief within: ${a.cats.map((c) => c.en).join(" + ")}.\nYou are not here to reinterpret the brief or add what was not asked — every detail below is mandatory.`,
       },
     },
     {
-      h: { ar: "مجموعة الأوامر (Command Stack)", en: "Command stack" },
-      body: { ar: `التركيبة: ${a.stackLine}\n\n${cmdAr}`, en: `Stack: ${a.stackLine}\n\n${cmdEn}` },
-    },
-    {
-      h: { ar: "المخرجات النهائية المحددة", en: "Exact final outputs" },
+      h: { ar: "🧠 المبدأ المركزي", en: "🧠 Central principle" },
       body: isTask ? {
-        ar: `• العدد: ${count} ${countNoun.ar} — ${a.features.countNote.ar}\n• صيغة التسليم: ${ratio} (${a.features.ratioNote.en})\n• الجودة: بلا حشو، بلا placeholders (TODO/lorem)، عناوين وهيكل واضح\n• اللغة: طابق لغة الطلب الأصلي\n• إن تضمنت أرقامًا أو حقائق: وثّق المصدر بجانبها`,
-        en: `• Count: ${count} ${countNoun.en} — ${a.features.countNote.en}\n• Delivery format: ${ratio}\n• Quality: zero filler, zero placeholders (TODO/lorem), clear headings & structure\n• Language: match the client's language\n• Any numbers or facts must carry their source inline`,
+        ar: `الدليل يحدد النتيجة، وليس الافتراض المسبق.\n• إن أظهرت الأدلة نتيجة مختلفة عن فرضية المستخدم، اعرض ما تدعمه الأدلة مع بيان الفرق.\n• إن لم تتوفر أدلة كافية قل بوضوح: «لم يثبت هذا بما يكفي من الأدلة المتاحة» — ولا تملأ الفراغ بالتخمين.\n• افصل دائمًا بين: النص المباشر ← السياق ← المرجع ← الاستنباط ← التشبيه، ولا تدمج المستويات.`,
+        en: `Evidence drives the outcome, not a pre-set hypothesis.\n• If evidence points away from the user's hypothesis, present what the evidence supports and state the difference.\n• If evidence is insufficient, say clearly: "Not established by the available evidence" — never fill gaps with guesses.\n• Always separate: direct text ← context ← reference ← inference ← analogy. Never merge the levels.`,
       } : {
-        ar: `• العدد: ${count} ${countNoun.ar} — ${a.features.countNote.ar}\n• الأبعاد: ${ratio} (${a.features.ratioNote.ar})\n• الدقة: 4K (3840×2160) أو أعلى، تفاصيل حادة، بلا artifacts\n• الصيغة: PNG/JPG عالية الجودة${a.features.consistency ? "\n• الاتساق: هوية بصرية واحدة (وجه/منتج/ألوان) ثابتة عبر كل الصور" : ""}`,
-        en: `• Count: ${count} ${countNoun.en} — ${a.features.countNote.en}\n• Aspect ratio: ${ratio} (${a.features.ratioNote.en})\n• Resolution: 4K (3840×2160) or higher, crisp detail, zero artifacts\n• Format: high-quality PNG/JPG${a.features.consistency ? "\n• Consistency: one visual identity (face/product/colors) held constant across all images" : ""}`,
-      },
-    },
-    {
-      h: { ar: "ضبط الهلوسة (Hallucination Guardrails)", en: "Hallucination guardrails" },
-      body: isTask ? {
-        ar: `السقف المحدد: ${halluc.ar}\n• لا تخترع مصادر أو إحصاءات أو اقتباسات.\n• إن لم تتأكد من معلومة: صرّح بعدم التأكد بدل اختراعها.\n• لا تخرج عن نطاق الطلب.\n• Negative: ${neg}`,
-        en: `Ceiling: ${halluc.en}\n• Never fabricate sources, statistics, or quotes.\n• If unsure, state uncertainty instead of inventing.\n• Stay strictly within the brief's scope.\n• Negative: ${neg}`,
-      } : {
-        ar: `السقف المحدد: ${halluc.ar}\n• لا تضف عناصر غير مذكورة في البرومبت.\n${a.features.text ? "• النص المكتوب حرفيًا فقط — بلا حروف زائدة أو أخطاء إملائية.\n" : "• لا تكتب أي نص أو أرقام داخل الصورة إلا إذا طُلب صراحة.\n"}• دقة فيزيائية/تشريحية/هندسية: نسب صحيحة، اتصالات ميكانيكية منطقية.\n• Negative prompt: ${neg}`,
-        en: `Ceiling: ${halluc.en}\n• Add nothing that is not mentioned in this prompt.\n${a.features.text ? "• Render text exactly as specified — no extra letters, no typos.\n" : "• Render no text or numerals inside the image unless explicitly requested.\n"}• Physical/anatomical/engineering accuracy: correct proportions, logical mechanical connections.\n• Negative prompt: ${neg}`,
+        ar: `الموجز يحدد الصورة، وليس التزيين.\n• لا تضف أي عنصر غير مذكور في هذا البرومبت.\n${a.features.text ? "• النص المكتوب حرفيًا فقط — بلا حروف زائدة أو أخطاء إملائية.\n" : "• لا تكتب أي نص أو أرقام داخل الصورة إلا إذا طُلب صراحة.\n"}• دقة فيزيائية/تشريحية/هندسية: نسب صحيحة، اتصالات ميكانيكية منطقية.\n• ${count > 1 ? "اتساق كامل بين كل مخرجات السلسلة (نفس الهوية والألوان)." : "التركيز على البنية الأساسية للموجز، لا كل تفاصيل النقاش."}`,
+        en: `The brief defines the image, not decoration.\n• Add nothing that is not stated in this prompt.\n${a.features.text ? "• Render text exactly as written — no extra letters, no typos.\n" : "• Render no text or numerals inside the image unless explicitly requested.\n"}• Physical/anatomical/engineering accuracy: correct proportions, logical mechanical connections.\n• ${count > 1 ? "Full consistency across the whole series (same identity and colors)." : "Focus on the brief's core structure, not every detail of the discussion."}`,
       },
     },
   ];
 
+  if (isTask) {
+    sections.push({
+      h: { ar: "⚖️ مستويات الدليل والثقة", en: "⚖️ Evidence & confidence levels" },
+      body: {
+        ar: `صنّف كل نتيجة وفق مستواها الحقيقي:\n[D] مباشر — منصوص عليه صراحة في المعطيات أو المرفقات.\n[C] سياقي — يظهر من سياق المعطيات.\n[R] مرجعي — تؤيده مصادر موثوقة موثَّقة.\n[I] استنباط قابل للمراجعة — استنتاج معقول من الأدلة السابقة، وليس نصًا مباشرًا.\n[A] تشبيه توضيحي — للتقريب فقط، ولا يجوز استخدامه لإثبات نتيجة.\nلا تستخدم درجة «عالية» للثقة إلا عندما يكون الدليل قويًا ومتعدد الطبقات.`,
+        en: `Classify every finding by its true level:\n[D] Direct — explicitly stated in the inputs/attachments.\n[C] Contextual — implied by context.\n[R] Referenced — supported by cited credible sources.\n[I] Inference (revisable) — a reasonable deduction, not direct evidence.\n[A] Analogy — illustrative only; may never be used as proof.\nUse "High" confidence only when evidence is strong and multi-layered.`,
+      },
+    });
+  }
+
+  sections.push({
+    h: { ar: "📋 التسلسل الإلزامي (تركيبة الأوامر)", en: "📋 Mandatory sequence (command stack)" },
+    body: {
+      ar: `التركيبة: ${a.stackLine}\n\nنفّذ الخطوات التالية بالترتيب دون تخطٍّ:\n${cmdAr}`,
+      en: `Stack: ${a.stackLine}\n\nExecute the following steps in order, without skipping:\n${cmdEn}`,
+    },
+  });
+
+  if (isTask) {
+    sections.push({
+      h: { ar: "🧪 اختبار مقاومة الفرضية", en: "🧪 Hypothesis-resistance test" },
+      body: {
+        ar: `قبل اعتماد أي نتيجة رئيسية اسأل:\n• هل يوجد دليل مباشر؟ هل السياق يدعمها؟\n• هل يتعارض معها مرجع موثوق؟ هل توجد معطيات تضعفها؟\n• هل العلاقة سببية فعلًا أم مجرد ترابط؟\n• هل يمكن تفسيرها بطريقة أبسط؟\n• هل تصمد إن حذفنا التشبيه الحديث؟\nإن فشلت النتيجة في الاختبار: خفّض درجة الثقة أو ارفضها.`,
+        en: `Before adopting any key conclusion, ask:\n• Is there direct evidence? Does context support it?\n• Does a credible source contradict it? Do other inputs weaken it?\n• Is the link truly causal or merely correlational?\n• Can it be explained more simply?\n• Would it survive without the modern analogy?\nIf it fails the test: lower its confidence or reject it.`,
+      },
+    });
+  }
+
+  sections.push({
+    h: { ar: "🛡️ الحماية من الهلوسة", en: "🛡️ Hallucination guardrails" },
+    body: isTask ? {
+      ar: `السقف الإبداعي المحدد: ${halluc.ar}\nالممنوع منعًا باتًا:\n• اختراع حقائق أو مصادر أو مراجع أو اقتباسات أو إحصاءات.\n• تقديم التخمين كيقين، أو تحويل التشابه إلى سببية.\n• تحويل الاستنباط [I] أو التشبيه [A] إلى نتيجة قطعية.\n• الحشو أو النصوص النائبة (TODO/lorem) أو الخروج عن نطاق الطلب.\nعند نقص الأدلة: الامتناع عن الاستنتاج أفضل من اختراع الاستنتاج.\n• Negative: ${neg}`,
+      en: `Creative ceiling: ${halluc.en}\nStrictly forbidden:\n• Inventing facts, sources, references, quotes, or statistics.\n• Presenting guesses as certainty, or turning resemblance into causation.\n• Turning inference [I] or analogy [A] into settled conclusions.\n• Filler, placeholders (TODO/lorem), or drifting beyond the brief.\nWhen evidence is thin: abstaining beats inventing.\n• Negative: ${neg}`,
+    } : {
+      ar: `السقف الإبداعي المحدد: ${halluc.ar}\nالممنوع منعًا باتًا:\n• اختراع عناصر أو علاقات أو تفاصيل لم يذكرها الموجز.\n${a.features.text ? "• أي خطأ إملائي أو حرف زائد في النص المطلوب.\n" : "• أي نص أو أرقام أو علامات مائية داخل الصورة.\n"}• نسب مشوهة، تشريح مستحيل، هندسة غير منطقية.\n• تحويل المصادفة البصرية إلى معنى مقصود.\nعند غموض الموجز: نفّذ أقرب تأويل مذكور ولا تخترع.\n• Negative prompt: ${neg}`,
+      en: `Creative ceiling: ${halluc.en}\nStrictly forbidden:\n• Inventing elements, relationships, or details the brief never mentioned.\n${a.features.text ? "• Any typo or extra letter in the requested text.\n" : "• Any text, numerals, or watermarks inside the image.\n"}• Deformed proportions, impossible anatomy, illogical geometry.\n• Treating visual coincidence as intended meaning.\nWhen the brief is ambiguous: render the closest stated interpretation — do not invent.\n• Negative prompt: ${neg}`,
+    },
+  });
+
+  sections.push(isTask ? {
+    h: { ar: "📊 مواصفات التسليم", en: "📊 Delivery specification" },
+    body: {
+      ar: `• عدد المخرجات: ${count} ${countNoun.ar} — ${a.features.countNote.ar}\n• صيغة التسليم: ${a.features.format.ar}\n• البنية: ملخص تنفيذي (≤ 5 أسطر) ← التحليل المفصل ← جدول النتائج ← توصيات وخطوات تالية\n• اللغة: طابق لغة الطلب الأصلي.\n• كل رقم أو حقيقة بمصدره بجانبه، أو مُعلَّمة بمستواها [D/C/R/I/A].`,
+      en: `• Deliverables: ${count} ${countNoun.en} — ${a.features.countNote.en}\n• Format: ${a.features.format.en}\n• Structure: executive summary (≤ 5 lines) → detailed analysis → results table → recommendations & next steps\n• Language: match the client's original language.\n• Every number or fact carries its source inline, or is labeled by level [D/C/R/I/A].`,
+    },
+  } : {
+    h: { ar: "🎨 المواصفات البصرية النهائية", en: "🎨 Final visual specification" },
+    body: {
+      ar: `• العدد: ${count} ${countNoun.ar} — ${a.features.countNote.ar}\n• الأبعاد: ${ratio} (${a.features.ratioNote.ar})\n• الدقة: 4K (3840×2160) أو أعلى — تفاصيل حادة، بلا artifacts\n• الصيغة: ${a.features.format.ar}\n• الطابع: Cinematic · Sophisticated · High-detail · Strong visual hierarchy\n• الأولوية البصرية: 1) المفهوم المركزي 2) أقوى العلاقات 3) العناصر المساندة 4) التشبيه إن لزم\n• ${count > 1 ? `اتساق الهوية عبر كل ${count} ${countNoun.ar}.` : "اللوحة مركزة وليست مزدحمة."}`,
+      en: `• Count: ${count} ${countNoun.en} — ${a.features.countNote.en}\n• Aspect ratio: ${ratio} (${a.features.ratioNote.en})\n• Resolution: 4K (3840×2160) or higher — crisp detail, zero artifacts\n• Format: ${a.features.format.en}\n• Look: Cinematic · Sophisticated · High-detail · Strong visual hierarchy\n• Visual priority: 1) core concept 2) strongest relationships 3) supporting elements 4) analogy if needed\n• ${count > 1 ? `Identity consistency across all ${count} ${countNoun.en}.` : "The frame is focused, not cluttered."}`,
+    },
+  });
+
+  if (isTask) {
+    sections.push({
+      h: { ar: "📋 جدول النتائج", en: "📋 Results table" },
+      body: {
+        ar: `أخرج جدولًا منهجيًا منفصلًا عن أي سرد:\n| النتيجة | الدليل | نوع الدليل D/C/R/I/A | درجة الثقة | ملاحظات منهجية |\n| ... | ... | ... | عالية/متوسطة/منخفضة | ... |`,
+        en: `Output a separate, methodical table:\n| Finding | Evidence | Level D/C/R/I/A | Confidence | Method note |\n| ... | ... | ... | High/Medium/Low | ... |`,
+      },
+    });
+  }
+
+  sections.push({
+    h: { ar: "📝 شكل النتيجة النهائية", en: "📝 Final output order" },
+    body: isTask ? {
+      ar: `أخرج النتائج بالترتيب التالي:\n1) تصنيف الأدلة (مباشر/سياقي/مرجعي/استنباطي/تشبيهي)\n2) النتيجة المركزية الأقوى\n3) التحليل المفصل وفق التسلسل الإلزامي\n4) جدول النتائج\n5) التوصيات والخطوات التالية\n6) تقرير تنفيذ موجز: ما اكتمل، وما استُبعد ولماذا`,
+      en: `Output in this order:\n1) Classify the evidence (direct/contextual/referenced/inferred/analogical)\n2) The strongest central conclusion\n3) Detailed analysis following the mandatory sequence\n4) Results table\n5) Recommendations & next steps\n6) A brief execution report: what was completed, what was excluded and why`,
+    } : {
+      ar: `أخرج النتائج بالترتيب التالي:\n1) التنفيذ على ${top.name} (البدائل: ${altModels})\n2) ${count} ${countNoun.ar} بدقة 4K وأبعاد ${ratio}\n3) تقرير تنفيذ موجز: ما نُفّذ، وما استُبعد ولماذا\n4) إن تعذر تنفيذ جزء من الموجز — صرّح به بدل استبداله`,
+      en: `Output in this order:\n1) Execution on ${top.name} (fallbacks: ${altModels})\n2) ${count} ${countNoun.en} at 4K, ${ratio}\n3) A brief execution report: what was rendered, what was excluded and why\n4) If any part of the brief is unrenderable — state it instead of substituting`,
+    },
+  });
+
+  sections.push({
+    h: { ar: "⚖️ القاعدة السيادية النهائية", en: "⚖️ Final sovereign rule" },
+    body: isTask ? {
+      ar: `لا تسمح لجمال الصياغة أن يتغلب على صحة المحتوى.\nولا تسمح لقوة النتيجة أن تتغلب على قوة الدليل.\nولا تسمح لسرعة التسليم أن تتغلب على أمانة المصادر.\nالمعيار الأعلى: صحة المحتوى، ثم أمانة الدليل، ثم الوضوح.`,
+      en: `Never let beautiful phrasing override content accuracy.\nNever let a strong conclusion override strong evidence.\nNever let speed override source integrity.\nHighest standard: content accuracy, then evidence integrity, then clarity.`,
+    } : {
+      ar: `لا تسمح لجمال اللقطة أن يتغلب على دقة الموجز.\nولا تسمح لقوة الأسلوب أن تتغلب على الالتزام بالتفاصيل.\nولا تسمح للارتجال أن يتغلب على تعليمات العميل.\nالمعيار الأعلى: أمانة الموجز، ثم الدقة الفيزيائية، ثم الجمال.`,
+      en: `Never let a beautiful frame override brief accuracy.\nNever let strong style override fidelity to detail.\nNever let improvisation override client instructions.\nHighest standard: brief fidelity, then physical accuracy, then beauty.`,
+    },
+  });
+
+  /* ================= الكتلة الجاهزة للصق ================= */
   const enBits: string[] = [];
   enBits.push(`[RECOMMENDED ${isTask ? "AGENT" : "ENGINE"}: ${top.name} | Fit ${top.pct}% | Fallbacks: ${altModels}]`);
-  enBits.push(`You are ${persona.en}.`);
-  enBits.push(isTask
-    ? `Produce ${count > 1 ? `${count} coherent ${countNoun.en}` : `one complete ${countNoun.en}`} for ${subjectEn}.`
-    : `Create ${count > 1 ? `${count} coherent images` : "one image"} of ${subjectEn}.`);
-  enBits.push(`Execute this command stack in order: ${ops}.`);
+  enBits.push(`FIXED ${isTask ? "TASK" : "VISUAL"} PROTOCOL — follow every section; only the bracketed inputs may change.`);
   if (isTask) {
-    enBits.push(`Deliver in ${ratio}. Language: match the client's language.`);
-    enBits.push(`Be exhaustive yet concise; zero placeholders, zero invented facts, sources cited inline.`);
+    enBits.push(`[INPUTS] Goal: ${subjectEn}. Brief: "${a.userText}".${a.features.fileNames.length ? ` Files: ${a.features.fileNames.join(", ")}.` : ""} Stack: ${ops}. Output: ${count} ${countNoun.en} in ${a.features.format.en}.`);
+    enBits.push(`PERSONA: You are ${persona.en}.`);
+    enBits.push(`CENTRAL PRINCIPLE: evidence drives conclusions — if evidence is insufficient, state "Not established by the available evidence"; never fill gaps with guesses.`);
+    enBits.push(`EVIDENCE LEVELS: label each claim [D]irect / [C]ontextual / [R]eferenced / [I]nference(revisable) / [A]nalogy(illustrative only); never present [I] or [A] as fact.`);
+    enBits.push(`MANDATORY SEQUENCE, in order: ${cmdEn.replace(/\n/g, " | ")}`);
+    enBits.push(`RESISTANCE TEST before adopting conclusions: direct evidence? context? credible contradiction? causation vs correlation? simpler explanation?`);
+    enBits.push(`GUARDRAILS: hallucination ceiling ${hallucPct}%. Forbidden: invented facts/sources/numbers/quotes, placeholders, filler, scope drift.`);
+    enBits.push(`DELIVERY: ${count} ${countNoun.en} — ${a.features.format.en}. Structure: executive summary → analysis → results table → next steps. Match the client's language; cite sources inline.`);
+    enBits.push(`RESULTS TABLE: | Finding | Evidence | Level D/C/R/I/A | Confidence High/Med/Low | Note |.`);
+    enBits.push(`SOVEREIGN RULE: accuracy of content over beauty of form; strength of evidence over strength of conclusion.`);
   } else {
+    enBits.push(`PERSONA: You are ${persona.en}.`);
+    enBits.push(`Create ${count > 1 ? `${count} coherent images` : "one image"} of ${subjectEn}.`);
+    enBits.push(`Execute this visual operation stack in order: ${ops}.`);
     if (a.commands.some((p) => ["lighting", "art", "photo", "cinematic"].includes(p.catId)))
       enBits.push(a.commands.filter((p) => ["lighting", "art", "photo", "cinematic"].includes(p.catId)).map((p) => p.cmd.en).join(", ") + ".");
-    enBits.push(`Aspect ratio ${ratio}, 4K+, ultra-detailed, professional-grade, physically accurate, coherent composition.`);
+    enBits.push(`Aspect ratio ${ratio}, 4K+, ultra-detailed, professional-grade, physically accurate, coherent composition, focused — not cluttered.`);
     if (a.features.text) enBits.push(`Render text exactly as specified in the brief — typographically flawless.`);
     else enBits.push(`No text or numerals inside the image unless explicitly requested.`);
+    enBits.push(`Strictly avoid: ${neg}.`);
   }
-  enBits.push(`Strictly avoid: ${neg}.`);
   enBits.push(`Client brief: "${a.userText}"`);
+
+  const ratioBi: Bi = isTask ? a.features.format : { ar: ratio, en: ratio };
 
   return {
     kind: a.kind,
     title: a.subjectAr
-      ? { ar: `برومبت «${a.subjectAr}»`, en: `Prompt: ${a.subjectEn}` }
-      : { ar: "البرومبت النهائي", en: "Final prompt" },
-    meta: { model: top.name, stack: a.stackLine, count, ratio: { ar: ratio, en: ratio }, halluc, hallucPct },
+      ? { ar: `بروتوكول «${a.subjectAr}»`, en: `Protocol: ${a.subjectEn}` }
+      : { ar: "البروتوكول النهائي", en: "Final protocol" },
+    meta: { model: top.name, stack: a.stackLine, count, ratio: ratioBi, halluc, hallucPct },
     sections,
-    paste: enBits.join(" "),
+    paste: enBits.join("\n"),
   };
 }
 
@@ -863,6 +968,14 @@ export const DECLINE_CHIPS: Bi[] = [
   { ar: "أضف إضاءة غروب ذهبية", en: "Add golden-hour lighting" },
   { ar: "أريدها بدون أي نصوص داخل الصورة", en: "No text inside the image" },
   { ar: "بدّل النموذج الأنسب إلى Midjourney", en: "Switch the model to Midjourney" },
+];
+
+export const TASK_DECLINE_CHIPS: Bi[] = [
+  { ar: "ركز التحليل على النتيجة المركزية الأقوى فقط", en: "Focus the analysis on the single strongest conclusion" },
+  { ar: "أخرجها كعرض شرائح من 10 شرائح", en: "Deliver it as a 10-slide deck" },
+  { ar: "أضف جدول نتائج مقارن", en: "Add a comparative results table" },
+  { ar: "اجعل السقف صارمًا ≤ 5% مع توثيق كامل", en: "Make the ceiling strict ≤ 5% with full citations" },
+  { ar: "بدّل المساعد الأنسب إلى Claude Opus", en: "Switch the assistant to Claude Opus" },
 ];
 
 export { ALL_COMMANDS, MACROS, CORE64, CATEGORIES, MODELS, TASK_ENGINES };

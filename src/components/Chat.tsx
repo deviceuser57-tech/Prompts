@@ -237,7 +237,7 @@ function AnalysisCard({ msg, onAccept, onDecline, onCmd }: {
           <SectionTitle n="3" title={t("sec3")} />
           <div className={`rounded-lg border border-dashed p-3.5 transition-colors ${done ? "border-line bg-panel2/30" : "border-amber/50 bg-amber/5"}`}>
             <p className="text-[13px] leading-relaxed">
-              {done ? (msg.answered === "yes" ? t("accepted") : t("declined")) : t("offer")}
+              {done ? (msg.answered === "yes" ? t("accepted") : t("declined")) : a.kind === "task" ? t("offerT") : t("offer")}
             </p>
             {!done && (
               <div className="flex flex-wrap gap-2 mt-3">
