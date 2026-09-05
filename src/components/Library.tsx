@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
-import { ALL_COMMANDS, CATEGORIES, COMMAND_INDEX, CORE64, MACROS, MODELS, RELATED, ratingLabel, type CommandDef } from "../data/commands";
+import { ALL_COMMANDS, CATEGORIES, COMMAND_INDEX, CORE64, MACROS, RELATED, enginesFor, ratingLabel, type CommandDef } from "../data/commands";
 import { useApp } from "../lib/i18n";
 import { Icon, StatusDot } from "./Icons";
 
@@ -139,12 +139,17 @@ export function Library({ onAsk, onRequestCommand }: { onAsk: (text: string) => 
                   {t("relatedTo")} <code className="font-mono text-teal dir-ltr">/{selInfo.relatedTo}</code> — {t("relatedNote")}
                 </p>
               )}
-              <p className="text-[10px] text-dim mb-1">{t("catLbl")}: {L({ ar: selInfo.cat.title, en: selInfo.cat.en })}</p>
+              <p className="text-[10px] text-dim mb-1 flex items-center gap-2">
+                {t("catLbl")}: {L({ ar: selInfo.cat.title, en: selInfo.cat.en })}
+                <span className={`text-[9px] rounded px-1.5 py-0.5 border ${selInfo.cat.kind === "task" ? "text-coral border-coral/40 bg-coral/10" : "text-teal border-teal/40 bg-teal/10"}`}>
+                  {selInfo.cat.kind === "task" ? t("taskBadge") : t("visualBadge")}
+                </span>
+              </p>
               <p className="text-[13px] leading-relaxed mb-4 font-medium">{L({ ar: sel.fn, en: sel.en })}</p>
 
-              <p className="text-[10.5px] text-dim font-semibold mb-2">{t("matrix")}</p>
+              <p className="text-[10.5px] text-dim font-semibold mb-2">{selInfo.cat.kind === "task" ? t("matrixT") : t("matrix")}</p>
               <div className="grid grid-cols-2 gap-1.5 mb-4">
-                {MODELS.map((m, i) => {
+                {enginesFor(selInfo.cat.kind).map((m, i) => {
                   const rl = ratingLabel(sel.r[i], locale);
                   return (
                     <div key={m.id} className="flex items-center gap-2 rounded-md border border-line bg-panel2/40 px-2.5 py-1.5">

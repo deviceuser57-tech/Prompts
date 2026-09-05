@@ -292,9 +292,33 @@ export interface Analysis {
 }
 
 /* ================= التحليل ================= */
-export function analyze(raw: string): Analysis | null {
+export interface FileHint { name: string; ext: string; }
+
+/* تلميحات نوعية الملف → كلمات مفتاحية يفهمها المحرك */
+const EXT_HINTS: Record<string, string> = {
+  csv: "csv تحليل بيانات dataviz", xlsx: "excel بيانات spreadsheet", xls: "excel بيانات",
+  pdf: "pdf لخص بحث summarize", doc: "مقال اكتب", docx: "مقال اكتب", txt: "لخص summarize", md: "اكتب outline",
+  json: "code json", js: "code javascript", ts: "code javascript", tsx: "code javascript", jsx: "code javascript",
+  py: "code python", java: "code جافا", cs: "code", go: "code", rb: "code", php: "code", sql: "sqlquery",
+  html: "code html", css: "code تصميم", sh: "code script", yml: "code", yaml: "code",
+  jpg: "صوره واقعيه", jpeg: "صوره", png: "صوره", webp: "صوره", gif: "صوره", bmp: "صوره", tiff: "صوره", heic: "صوره",
+  psd: "تصميم photoshop", ai: "تصميم", fig: "mockup تصميم", svg: "icon تصميم", sketch: "تصميم",
+  mp3: "ترجمه فيديو subtitling", wav: "ترجمه فيديو", m4a: "ترجمه فيديو", flac: "ترجمه فيديو",
+  mp4: "فيديو storyboard", mov: "فيديو storyboard", mkv: "فيديو", avi: "فيديو", webm: "فيديو",
+  zip: "ملف مضغوط", rar: "ملف مضغوط", "7z": "ملف مضغوط", tar: "ملف مضغوط", gz: "ملف مضغوط",
+  pptx: "pitch عرض تقديمي", ppt: "pitch عرض", key: "pitch عرض",
+};
+
+export function analyze(raw: string, files?: FileHint[]): Analysis | null {
   const text = raw.toLowerCase();
-  const norm = normalize(text);
+  let norm = normalize(text);
+  if (files && files.length) {
+    const hintWords = files
+      .map((f) => EXT_HINTS[f.ext.toLowerCase()] ?? "")
+      .filter(Boolean)
+      .join(" ");
+    if (hintWords) norm += " " + normalize(hintWords);
+  }
   const tokens = new Set(norm.split(/[^a-z0-9]+/).filter(Boolean));
 
   const explicit = new Set<string>();
@@ -602,6 +626,10 @@ export function analyze(raw: string): Analysis | null {
 
   const cmdWord = kind === "task" ? { ar: "أوامر مهام", en: "task commands" } : { ar: "أوامر بصرية", en: "visual commands" };
   const engineWord = kind === "task" ? { ar: "مساعد الذكاء", en: "AI assistant" } : { ar: "النموذج", en: "model" };
+  const fileNames = files && files.length ? files.map((f) => f.name).join("، ") : "";
+  const fileNote: Bi = files && files.length
+    ? { ar: ` استلمت ${files.length === 1 ? "ملفًا مرفقًا" : `${files.length} ملفات مرفقة`} (${fileNames}) ودمجت نوع ${files.length === 1 ? "الملف" : "الملفات"} في الترشيحات.` , en: ` I received ${files.length} attached file(s) (${fileNames}) and factored the file type(s) into the recommendations.` }
+    : { ar: "", en: "" };
   const summary: Bi = {
     ar:
       `راجعت طلبك بدقة: ` +
@@ -609,14 +637,16 @@ export function analyze(raw: string): Analysis | null {
       `مجال ${catNames}. ` +
       (explicit.size ? `التقطت ${explicit.size} أمرًا صريحًا ذكرته، و` : ``) +
       `رشحت ${picked.length} ${cmdWord.ar} من القاموس. ` +
-      (notes.length ? `ملاحظات مؤثرة على اختيار ${engineWord.ar}: ${notes.map((n) => n.ar).join("، ")}.` : `لا قيود خاصة مكتشفة — الاختيار حسب جودة الفئة.`),
+      (notes.length ? `ملاحظات مؤثرة على اختيار ${engineWord.ar}: ${notes.map((n) => n.ar).join("، ")}.` : `لا قيود خاصة مكتشفة — الاختيار حسب جودة الفئة.`) +
+      fileNote.ar,
     en:
       `I reviewed your request carefully: ` +
       (subjectEn ? `the core subject is ${subjectEn}, within ` : ``) +
       `${catNamesEn}. ` +
       (explicit.size ? `I detected ${explicit.size} explicit command(s) you mentioned and ` : ``) +
       `shortlisted ${picked.length} ${cmdWord.en} from the dictionary. ` +
-      (notes.length ? `${engineWord.en === "model" ? "Model" : "Assistant"}-selection drivers: ${notes.map((n) => n.en).join(", ")}.` : `No special constraints detected — selection is based on domain quality.`),
+      (notes.length ? `${engineWord.en === "model" ? "Model" : "Assistant"}-selection drivers: ${notes.map((n) => n.en).join(", ")}.` : `No special constraints detected — selection is based on domain quality.`) +
+      fileNote.en,
   };
 
   return { summary, subjectAr, subjectEn, kind, cats, commands: picked, models, features, userText: raw.trim(), stackLine };
@@ -786,6 +816,7 @@ export function buildPrompt(a: Analysis): BuiltPrompt {
   enBits.push(`Client brief: "${a.userText}"`);
 
   return {
+    kind: a.kind,
     title: a.subjectAr
       ? { ar: `برومبت «${a.subjectAr}»`, en: `Prompt: ${a.subjectEn}` }
       : { ar: "البرومبت النهائي", en: "Final prompt" },
@@ -823,6 +854,11 @@ export const SUGGESTIONS: { label: Bi; text: Bi }[] = [
   { label: { ar: "تنظيف بيانات", en: "Data cleaning" }, text: { ar: "نظف ملف CSV فيه قيم ناقصة واقترح رسومًا بيانية مناسبة للعرض", en: "Clean a CSV with missing values and suggest the right charts for presentation" } },
   { label: { ar: "ترجمة احترافية", en: "Pro translation" }, text: { ar: "ترجم نص العقد إلى الإنجليزية ترجمة احترافية مع مسرد مصطلحات", en: "Translate the contract text into professional English with a glossary of terms" } },
   { label: { ar: "ترميم صورة", en: "Photo restoration" }, text: { ar: "أريد ترميم وتلوين صورة عائلية قديمة مع تحسين الدقة", en: "Restore and colorize an old family photo with resolution enhancement" } },
+  { label: { ar: "إصلاح كود بايثون", en: "Debug Python" }, text: { ar: "أريد إصلاح خطأ في سكريبت بايثون وكتابة اختبارات وحدة له", en: "Debug a Python script and generate unit tests for it" } },
+  { label: { ar: "بحث موثق", en: "Cited research" }, text: { ar: "أريد بحثًا موثقًا بالمصادر عن أحدث اتجاهات الذكاء الاصطناعي", en: "Research the latest AI trends with cited sources" } },
+  { label: { ar: "مقال SEO", en: "SEO article" }, text: { ar: "اكتب مقالًا تسويقيًا محسّنًا لمحركات البحث عن السيارات الكهربائية", en: "Write an SEO-friendly marketing article about electric cars" } },
+  { label: { ar: "تحليل بيانات", en: "Data analysis" }, text: { ar: "حلّل بيانات مبيعات شهرية من ملف Excel واقترح داشبورد مؤشرات", en: "Analyze monthly sales data from an Excel file and propose a KPI dashboard" } },
+  { label: { ar: "خطة دراسة", en: "Study plan" }, text: { ar: "ضع لي خطة مذاكرة أسبوعية لامتحان مع بطاقات استذكار", en: "Build a weekly study plan for an exam with flashcards" } },
 ];
 
 export const DECLINE_CHIPS: Bi[] = [
