@@ -302,8 +302,8 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-line">
         {[
           { k: t("metaModel"), v: p.meta.model, hi: true },
-          { k: p.meta.ratio.ar.includes(":") || p.meta.ratio.ar.match(/^\d/) ? t("metaCount") : t("metaCountT"), v: String(p.meta.count) },
-          { k: p.meta.ratio.ar.includes(":") || p.meta.ratio.ar.match(/^\d/) ? t("metaRatio") : t("metaRatioT"), v: L(p.meta.ratio) },
+          { k: p.kind === "task" ? t("metaCountT") : t("metaCount"), v: String(p.meta.count) },
+          { k: p.kind === "task" ? t("metaRatioT") : t("metaRatio"), v: L(p.meta.ratio) },
           { k: t("metaHalluc"), v: L(p.meta.halluc) },
           { k: t("metaStack"), v: `${p.meta.stack.split("+").length} ${t("ops")}` },
         ].map((m) => (
@@ -346,7 +346,7 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
 
         <div className="flex flex-wrap gap-2 pt-1">
           <CopyBtn text={formatFullSpec(p)} label={t("copyFull")} labelDone={t("copied")} />
-          <DownloadBtn name="visual-spec-full.txt" content={formatFullSpec(p)} label={t("dlFull")} labelDone={t("downloaded")} />
+          <DownloadBtn name={p.kind === "task" ? "task-protocol-spec.txt" : "visual-protocol-spec.txt"} content={formatFullSpec(p)} label={t("dlFull")} labelDone={t("downloaded")} />
           <button onClick={onNew} className="btn-press inline-flex items-center gap-2 rounded-lg border border-teal/40 bg-teal/10 px-3.5 py-2 text-xs font-semibold text-teal hover:bg-teal/20">
             <Icon name="refresh" className="w-4 h-4" /> {t("newReq")}
           </button>
