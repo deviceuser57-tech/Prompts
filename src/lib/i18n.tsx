@@ -33,6 +33,7 @@ const ar = {
   catLbl: "الفئة", fnLbl: "الوظيفة", cmdsCount: "أوامر",
   close: "إغلاق", you: "أنت", userNote: "طلب مُرسَل للمراجعة", botName: "مُحرّك البصر", botNote: "يحلّل · يقارن · يركّب البرومبت",
   dark: "غامق", light: "فاتح",
+  sessions: "الجلسات", noSessions: "لا توجد جلسات بعد — أنشئ جلسة جديدة", deleteSession: "حذف الجلسة", exportJson: "تصدير JSON", importJson: "استيراد JSON", shareChat: "مشاركة", done: "تم بنجاح", errImport: "تعذّر الاستيراد: صيغة غير صالحة", shared: "تم نسخ رابط المشاركة", sharePrompt: "مشاركة",
 };
 const en: typeof ar = {
   appName: "Basar Codewords", appTag: "Visual Codewords · Slash-Command Engineer",
@@ -65,6 +66,7 @@ const en: typeof ar = {
   catLbl: "Category", fnLbl: "Function", cmdsCount: "cmds",
   close: "Close", you: "You", userNote: "Request sent for review", botName: "Basar Engine", botNote: "Analyzes · Compares · Stacks prompts",
   dark: "Dark", light: "Light",
+  sessions: "Sessions", noSessions: "No sessions yet — start a new one", deleteSession: "Delete session", exportJson: "Export JSON", importJson: "Import JSON", shareChat: "Share", done: "Done", errImport: "Import failed: invalid format", shared: "Share link copied", sharePrompt: "Share",
 };
 
 export type TKey = keyof typeof ar;
