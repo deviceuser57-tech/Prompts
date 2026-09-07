@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type ClipboardEvent, type DragEvent } from "react";
 import gsap from "gsap";
-import type { Msg } from "../types";
+import type { Msg, AttachedFile, FileGroup } from "../types";
 import type { Analysis, BuiltPrompt, Bi } from "../lib/engine";
 import { useApp } from "../lib/i18n";
 import { enginesFor, ratingLabel } from "../data/commands";
@@ -278,7 +278,7 @@ function AnalysisCard({ msg, onAccept, onDecline, onCmd }: {
           <SectionTitle n="3" title={t("sec3")} />
           <div className={`rounded-lg border border-dashed p-3.5 transition-colors ${done ? "border-line bg-panel2/30" : "border-amber/50 bg-amber/5"}`}>
             <p className="text-[13px] leading-relaxed">
-              {done ? (msg.answered === "yes" ? t("accepted") : t("declined")) : t("offer")}
+              {done ? (msg.answered === "yes" ? t("accepted") : t("declined")) : a.kind === "task" ? t("offerT") : t("offer")}
             </p>
             {!done && (
               <div className="flex flex-wrap gap-2 mt-3">
@@ -300,15 +300,16 @@ function AnalysisCard({ msg, onAccept, onDecline, onCmd }: {
 /* ---------------- البرومبت النهائي ---------------- */
 export function formatFullSpec(p: BuiltPrompt): string {
   const lines: string[] = [];
+  const isTask = p.kind === "task";
   lines.push("═".repeat(46));
   lines.push(p.title.ar + "  |  " + p.title.en);
   lines.push("═".repeat(46));
-  lines.push(`المواصفة الكاملة — Full Visual Prompt Specification`);
+  lines.push(isTask ? `المواصفة الكاملة — Full Task Prompt Specification` : `المواصفة الكاملة — Full Visual Prompt Specification`);
   lines.push("");
   lines.push(`[الميتا — META]`);
-  lines.push(`النموذج الموصى به / Model: ${p.meta.model}`);
-  lines.push(`عدد الصور / Image count: ${p.meta.count}`);
-  lines.push(`الأبعاد / Aspect ratio: ${p.meta.ratio.ar}`);
+  lines.push(isTask ? `المساعد الموصى به / Assistant: ${p.meta.model}` : `النموذج الموصى به / Model: ${p.meta.model}`);
+  lines.push(isTask ? `عدد المخرجات / Deliverables: ${p.meta.count}` : `عدد الصور / Image count: ${p.meta.count}`);
+  lines.push(isTask ? `صيغة التسليم / Format: ${p.meta.ratio.ar}` : `الأبعاد / Aspect ratio: ${p.meta.ratio.ar}`);
   lines.push(`سقف الهلوسة / Hallucination ceiling: ${p.meta.halluc.ar} (${p.meta.halluc.en})`);
   lines.push(`تركيبة الأوامر / Command stack: ${p.meta.stack}`);
   lines.push("");
@@ -341,8 +342,8 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-line">
         {[
           { k: t("metaModel"), v: p.meta.model, hi: true },
-          { k: p.meta.ratio.ar.includes(":") || p.meta.ratio.ar.match(/^\d/) ? t("metaCount") : t("metaCountT"), v: String(p.meta.count) },
-          { k: p.meta.ratio.ar.includes(":") || p.meta.ratio.ar.match(/^\d/) ? t("metaRatio") : t("metaRatioT"), v: L(p.meta.ratio) },
+          { k: p.kind === "task" ? t("metaCountT") : t("metaCount"), v: String(p.meta.count) },
+          { k: p.kind === "task" ? t("metaRatioT") : t("metaRatio"), v: L(p.meta.ratio) },
           { k: t("metaHalluc"), v: L(p.meta.halluc) },
           { k: t("metaStack"), v: `${p.meta.stack.split("+").length} ${t("ops")}` },
         ].map((m) => (
@@ -384,6 +385,7 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
 
         <div className="flex flex-wrap gap-2 pt-1">
           <CopyBtn text={formatFullSpec(p)} label={t("copyFull")} labelDone={t("copied")} />
+          <DownloadBtn name={p.kind === "task" ? "task-protocol-spec.txt" : "visual-protocol-spec.txt"} content={formatFullSpec(p)} label={t("dlFull")} labelDone={t("downloaded")} />
           <DownloadBtn name="visual-spec-full.txt" content={formatFullSpec(p)} label={t("dlFull")} labelDone={t("downloaded")} />
           <ShareBtn p={p} />
           <JsonBtn p={p} />
@@ -472,6 +474,234 @@ export function TypingRow({ label }: { label: string }) {
   );
 }
 
+/* ---------------- الملفات المرفقة ---------------- */
+const fuid = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+export const extOf = (name: string) => (name.includes(".") ? (name.split(".").pop() || "").toLowerCase() : "");
+const TEXT_EXTS = new Set(["txt", "md", "csv", "json", "js", "ts", "tsx", "jsx", "py", "java", "cs", "go", "rb", "php", "sql", "html", "css", "sh", "yml", "yaml", "log", "xml", "rtf"]);
+export function groupOf(ext: string, mime: string): FileGroup {
+  if (mime.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff", "heic", "svg"].includes(ext)) return "image";
+  if (ext === "pdf") return "pdf";
+  if (mime.startsWith("audio/") || ["mp3", "wav", "m4a", "flac", "aac", "ogg"].includes(ext)) return "audio";
+  if (mime.startsWith("video/") || ["mp4", "mov", "mkv", "avi", "webm"].includes(ext)) return "video";
+  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) return "archive";
+  if (["psd", "ai", "fig", "sketch", "xd"].includes(ext)) return "design";
+  if (TEXT_EXTS.has(ext)) return "text";
+  return "other";
+}
+const FILE_ICON: Record<FileGroup, string> = { image: "camera", pdf: "book", audio: "pulse", video: "film", archive: "box", design: "brush", text: "file", other: "file" };
+const GROUP_HUE: Record<FileGroup, string> = { image: "text-teal", pdf: "text-coral", audio: "text-amber", video: "text-amber", archive: "text-mute", design: "text-coral", text: "text-teal", other: "text-mute" };
+export function fmtSize(b: number) {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${Math.round(b / 1024)} KB`;
+  return `${(b / 1024 / 1024).toFixed(1)} MB`;
+}
+
+async function makeThumb(f: File): Promise<string | undefined> {
+  try {
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = url; });
+    const max = 340;
+    const sc = Math.min(1, max / Math.max(img.width, img.height));
+    const cv = document.createElement("canvas");
+    cv.width = Math.max(1, Math.round(img.width * sc));
+    cv.height = Math.max(1, Math.round(img.height * sc));
+    cv.getContext("2d")!.drawImage(img, 0, 0, cv.width, cv.height);
+    const out = cv.toDataURL("image/jpeg", 0.82);
+    URL.revokeObjectURL(url);
+    return out;
+  } catch { return undefined; }
+}
+
+interface PendingFile extends AttachedFile { progress: number; }
+
+function FileChip({ f, onRemove, onClick }: { f: AttachedFile | PendingFile; onRemove?: () => void; onClick?: () => void }) {
+  const { t } = useApp();
+  const prog = "progress" in f ? f.progress : 1;
+  return (
+    <div className="relative shrink-0 w-[136px] rounded-lg border border-line bg-panel2/60 overflow-hidden group">
+      {f.group === "image" && f.thumb ? (
+        <button onClick={onClick} className="block w-full h-[70px] overflow-hidden cursor-zoom-in" title={t("openImage")}>
+          <img src={f.thumb} alt={f.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+        </button>
+      ) : (
+        <div className="h-[70px] grid place-items-center bg-gradient-to-br from-panel2/80 to-transparent">
+          <div className="text-center">
+            <Icon name={FILE_ICON[f.group]} className={`w-6 h-6 mx-auto ${GROUP_HUE[f.group]}`} strokeWidth={1.5} />
+            <p className="font-mono text-[9px] text-dim mt-1 uppercase tracking-wider">{f.ext || "file"}</p>
+          </div>
+        </div>
+      )}
+      <div className="px-2 py-1.5">
+        <p className="text-[10px] font-medium truncate" dir="ltr">{f.name}</p>
+        <p className="text-[9px] text-dim mt-0.5 truncate">{fmtSize(f.size)}{f.gone ? ` · ${t("fileGone")}` : ""}</p>
+      </div>
+      {prog < 1 && (
+        <div className="absolute inset-x-0 bottom-0 h-[3px] bg-deep/60">
+          <div className="h-full bg-teal shadow-[0_0_8px_rgba(57,208,195,0.6)] transition-[width] duration-200" style={{ width: `${prog * 100}%` }} />
+        </div>
+      )}
+      {onRemove && (
+        <button onClick={onRemove} aria-label={t("removeFile")} className="btn-press absolute top-1 end-1 grid place-items-center w-5 h-5 rounded-full bg-deep/85 border border-line text-mute hover:text-coral hover:border-coral/60">
+          <Icon name="close" className="w-3 h-3" strokeWidth={2.4} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function UserFiles({ files }: { files: AttachedFile[] }) {
+  const { t } = useApp();
+  const [zoom, setZoom] = useState<AttachedFile | null>(null);
+  return (
+    <>
+      <p className="text-[9.5px] text-dim font-semibold mt-2.5 mb-1.5 flex items-center gap-1.5">
+        <Icon name="paperclip" className="w-3 h-3" /> {t("filesInMsg")} · {files.length}
+      </p>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {files.map((f) => (
+          <FileChip key={f.id} f={f} onClick={f.group === "image" && f.thumb ? () => setZoom(f) : undefined} />
+        ))}
+      </div>
+      {zoom && zoom.thumb && <Lightbox src={zoom.thumb} name={zoom.name} onClose={() => setZoom(null)} />}
+    </>
+  );
+}
+
+export function Lightbox({ src, name, onClose }: { src: string; name: string; onClose: () => void }) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-deep/85 backdrop-blur-md p-4 cursor-zoom-out" onClick={onClose}>
+      <div className="glass rounded-xl p-2 max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
+        <img src={src} alt={name} className="max-w-full max-h-[82vh] rounded-lg object-contain cursor-default" />
+        <p className="text-[11px] text-mute px-2 py-1.5 truncate max-w-[70vw]" dir="ltr">{name}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- كاتب الرسالة مع الرفع ---------------- */
+export function Composer({ onSend, busy, placeholder }: {
+  onSend: (text: string, files: AttachedFile[]) => void;
+  busy: boolean;
+  placeholder: string;
+}) {
+  const { t, locale } = useApp();
+  const [draft, setDraft] = useState("");
+  const [files, setFiles] = useState<PendingFile[]>([]);
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const depth = useRef(0);
+
+  const process = useCallback(async (f: File) => {
+    const ext = extOf(f.name);
+    const group = groupOf(ext, f.type);
+    const pf: PendingFile = { id: fuid(), name: f.name, size: f.size, mime: f.type || "application/octet-stream", ext, group, progress: 0.1 };
+    setFiles((p) => [...p, pf]);
+    const patch = (progress: number, extra?: Partial<AttachedFile>) =>
+      setFiles((p) => p.map((x) => (x.id === pf.id ? { ...x, ...extra, progress } : x)));
+    if (group === "image") {
+      const thumb = await makeThumb(f);
+      patch(1, { thumb });
+    } else if (group === "text") {
+      try { const txt = await f.text(); patch(1, { snippet: txt.slice(0, 1500) }); } catch { patch(1); }
+    } else {
+      await new Promise((r) => setTimeout(r, 260));
+      patch(1);
+    }
+  }, []);
+
+  const addFiles = useCallback((list: FileList | File[]) => {
+    Array.from(list).forEach((f) => { void process(f); });
+  }, [process]);
+
+  const onDrop = (e: DragEvent) => {
+    e.preventDefault();
+    depth.current = 0;
+    setDrag(false);
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  };
+  const onDragEnter = (e: DragEvent) => { e.preventDefault(); depth.current += 1; setDrag(true); };
+  const onDragLeave = (e: DragEvent) => { e.preventDefault(); depth.current -= 1; if (depth.current <= 0) setDrag(false); };
+  const onPaste = (e: ClipboardEvent) => {
+    const items = e.clipboardData?.files;
+    if (items && items.length) { e.preventDefault(); addFiles(items); }
+  };
+
+  const ready = files.filter((f) => f.progress >= 1);
+  const canSend = !busy && (draft.trim().length > 0 || ready.length > 0);
+  const send = () => {
+    if (!canSend) return;
+    const fallback = locale === "ar" ? `أرفقت ${ready.length} ${ready.length === 1 ? "ملفًا" : "ملفات"} للمراجعة` : `Attached ${ready.length} file(s) for review`;
+    onSend(draft.trim() || fallback, ready.map(({ progress: _p, ...rest }) => rest));
+    setDraft("");
+    setFiles([]);
+  };
+
+  return (
+    <div
+      className="relative"
+      onDrop={onDrop} onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDragOver={(e) => e.preventDefault()}
+    >
+      {files.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-2 px-1">
+          {files.map((f) => (
+            <FileChip key={f.id} f={f} onRemove={() => setFiles((p) => p.filter((x) => x.id !== f.id))} />
+          ))}
+        </div>
+      )}
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); send(); }}
+        className={`flex items-end gap-2 glass glass-strong rounded-xl p-2 transition-colors shadow-[0_8px_30px_rgba(0,0,0,0.18)] ${drag ? "border-teal/70" : "focus-within:border-teal/60"}`}
+      >
+        <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          title={t("attach")}
+          className="btn-press grid place-items-center w-10 h-10 shrink-0 rounded-lg border border-line bg-panel2/50 text-mute hover:text-teal hover:border-teal/60"
+        >
+          <Icon name="paperclip" className="w-4.5 h-4.5" strokeWidth={1.9} />
+        </button>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          onPaste={onPaste}
+          rows={1}
+          placeholder={placeholder}
+          className="flex-1 resize-none bg-transparent text-[13px] leading-relaxed placeholder:text-dim px-2 py-2 max-h-32 text-ink outline-none"
+          style={{ minHeight: "40px" }}
+          onInput={(e) => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = Math.min(128, el.scrollHeight) + "px"; }}
+        />
+        <button
+          type="submit"
+          disabled={!canSend}
+          className="btn-press grid place-items-center w-10 h-10 shrink-0 rounded-lg bg-amber text-deep disabled:opacity-35 disabled:cursor-not-allowed hover:bg-amberhi shadow-[0_4px_16px_rgba(242,163,60,0.35)]"
+          aria-label={t("chatTab")}
+        >
+          <Icon name="send" className="w-4.5 h-4.5 rtl:-scale-x-100" strokeWidth={2} />
+        </button>
+      </form>
+
+      {drag && (
+        <div className="absolute -inset-2 z-20 rounded-xl border-2 border-dashed border-teal bg-deep/80 backdrop-blur-sm grid place-items-center pointer-events-none">
+          <div className="text-center">
+            <Icon name="paperclip" className="w-8 h-8 mx-auto text-teal" strokeWidth={1.6} />
+            <p className="font-display font-bold text-sm text-teal mt-2">{t("dropHere")}</p>
+            <p className="text-[10.5px] text-mute mt-0.5">{t("dropSub")}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------- عارض الرسالة ---------------- */
 export function MessageView({ msg, onAccept, onDecline, onCmd, onUse, onNew, onChip }: {
   msg: Msg;
@@ -488,6 +718,7 @@ export function MessageView({ msg, onAccept, onDecline, onCmd, onUse, onNew, onC
         <UserHead />
         <div className="glass rounded-xl rounded-ee-md border-amber/25 bg-amber/10 px-4 py-3">
           <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+          {msg.files && msg.files.length > 0 && <UserFiles files={msg.files} />}
         </div>
       </Rise>
     );

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
-import { ALL_COMMANDS, CATEGORIES, CORE64, MACROS, MODELS } from "./data/commands";
-import { analyze, buildPrompt, commandInfo, isCommandQuery, SUGGESTIONS, DECLINE_CHIPS } from "./lib/engine";
+import { ALL_COMMANDS, CATEGORIES, CORE64, MACROS, MODELS, TASK_ENGINES } from "./data/commands";
+import { analyze, buildPrompt, commandInfo, isCommandQuery, SUGGESTIONS, DECLINE_CHIPS, TASK_DECLINE_CHIPS } from "./lib/engine";
 import { AppProvider, useApp } from "./lib/i18n";
-import type { Msg } from "./types";
-import { MessageView, TypingRow, useAutoScroll } from "./components/Chat";
+import type { Msg, AttachedFile } from "./types";
+import { MessageView, TypingRow, useAutoScroll, Composer } from "./components/Chat";
 import { Library } from "./components/Library";
 import { SessionTray } from "./components/SessionTray";
 import { Icon } from "./components/Icons";
@@ -26,19 +26,19 @@ function greetingMsg(locale: "ar" | "en"): Msg {
   return {
     id: uid(), role: "assistant", kind: "text", ts: Date.now(),
     text: locale === "ar"
-      ? "أهلًا بك! أنا «مُحرّك البصر» — مساعد الأوامر البصرية.\nاكتب طلبك بالعربي أو الإنجليزي، وسأقوم فورًا بـ:\n\n1. مراجعة سريعة لطلبك وتحديد أنسب نموذج توليد صور من بين 8 نماذج.\n2. اقتراح أوامر الـ Slash المناسبة مع النتيجة المتوقعة من كل أمر.\n3. وإذا أردت، أحوّل كل ما ناقشناه إلى برومبت احترافي شامل: الشخصية، المطلوب، تركيبة الأوامر، المخرجات النهائية المحددة، سقف الهلوسة، وعدد الصور.\n\nجرّب أحد الاقتراحات بالأسفل، أو افتح /cutaway من شريط الأوامر لترى كيف أشرح أي أمر."
-      : "Welcome! I'm the Basar Engine — your visual-command copilot.\nDescribe what you need in Arabic or English, and I will instantly:\n\n1. Run a quick review and pick the best image model out of 8.\n2. Suggest the right slash commands with the expected result of each.\n3. On request, turn everything we discussed into a full professional prompt: persona, task, command stack, exact final outputs, hallucination ceiling, and image count.\n\nTry a suggestion below, or click /cutaway on the ticker to see how I explain any command.",
+      ? "أهلًا بك! أنا «مُحرّك الأوامر» — مساعد الأوامر البصرية وأوامر المهام.\nاكتب طلبك بالعربي أو الإنجليزي، وسأقوم فورًا بـ:\n\n1. مراجعة سريعة لطلبك وتحديد الأنسب للتنفيذ: نماذج توليد الصور (8) أو مساعدات الذكاء للمهام (8).\n2. اقتراح أوامر الـ Slash المناسبة — بصرية ومهام — مع النتيجة المتوقعة من كل أمر.\n3. وإذا أردت، أحوّل كل ما ناقشناه إلى برومبت احترافي شامل: الشخصية، المطلوب، تركيبة الأوامر، المخرجات النهائية المحددة، سقف الهلوسة، وعدد المخرجات.\n\nيمكنك أيضًا إرفاق ملفات بأي صيغة — صور، PDF، كود، بيانات، صوت — من زر المشبك أو بالسحب والإفلات أو باللصق، وسأدمج نوع الملف في الترشيحات.\n\nجرّب أحد الاقتراحات بالأسفل، أو افتح /cutaway من شريط الأوامر لترى كيف أشرح أي أمر."
+      : "Welcome! I'm the Command Engine — your visual & task-command copilot.\nDescribe what you need in Arabic or English, and I will instantly:\n\n1. Run a quick review and pick the best executor: an image model (8) or a task AI assistant (8).\n2. Suggest the right slash commands — visual and task — with the expected result of each.\n3. On request, turn everything we discussed into a full professional prompt: persona, task, command stack, exact final outputs, hallucination ceiling, and deliverable count.\n\nYou can also attach files of any type — images, PDFs, code, data, audio — via the paperclip, drag & drop, or paste, and I'll factor the file type into the recommendations.\n\nTry a suggestion below, or click /cutaway on the ticker to see how I explain any command.",
   };
 }
 
 const FLOATING_CMDS = [
   { cmd: "/isometric", style: { top: "16%", left: "5%", animationDelay: "0s" }, d: 26 },
   { cmd: "/cutaway + /dimensioned", style: { top: "62%", left: "3%" }, d: 40 },
-  { cmd: "/goldenhour", style: { top: "34%", left: "42%" }, d: 18 },
+  { cmd: "/code + /unittest", style: { top: "34%", left: "42%" }, d: 18 },
   { cmd: "/blueprint", style: { top: "78%", left: "36%" }, d: 32 },
-  { cmd: "/storyboard", style: { top: "10%", left: "68%" }, d: 22 },
+  { cmd: "/research + /cite", style: { top: "10%", left: "68%" }, d: 22 },
   { cmd: "/anatomy", style: { top: "52%", left: "92%" }, d: 36 },
-  { cmd: "/neon", style: { top: "88%", left: "72%" }, d: 28 },
+  { cmd: "/seo + /keywords", style: { top: "88%", left: "72%" }, d: 28 },
 ];
 
 function Shell() {
@@ -66,7 +66,7 @@ function Shell() {
     return [greetingMsg(locale)];
   });
   const [typing, setTyping] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
+  const [composerKey, setComposerKey] = useState(0);
   const [tab, setTab] = useState<"chat" | "lib">("chat");
   const [sessions, setSessions] = useState(() => loadSessions());
   const timers = useRef<number[]>([]);
@@ -92,6 +92,13 @@ function Shell() {
   }, [msgs, sessionId, t]);
 
   useEffect(() => {
+    const slice = msgs.slice(-40);
+    const slim = slice.map((m) => m.files
+      ? { ...m, files: m.files.map((f) => ({ ...f, thumb: undefined, snippet: undefined, gone: true })) }
+      : m);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(slice)); }
+    catch { try { localStorage.setItem(LS_KEY, JSON.stringify(slim)); } catch { /* ignore */ } }
+  }, [msgs]);
     try { localStorage.setItem(LS_CURRENT, sessionId ?? ""); } catch { /* ignore */ }
   }, [sessionId]);
   useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);
@@ -137,14 +144,14 @@ function Shell() {
   }, [typing !== null, locale]);
 
   const push = useCallback((m: Msg) => setMsgs((p) => [...p, m]), []);
-  const withTyping = useCallback((delay: number, fn: () => void) => {
+  const withTyping = useCallback((delay: number, fn: () => void, firstLabel?: string) => {
     labelIdx.current = 0;
-    setTyping(typingLabels[0]);
+    setTyping(firstLabel ?? typingLabels[0]);
     const tm = window.setTimeout(() => { setTyping(null); fn(); }, RM ? Math.min(delay, 300) : delay);
     timers.current.push(tm);
   }, [typingLabels]);
 
-  const respond = useCallback((userText: string) => {
+  const respond = useCallback((userText: string, files?: AttachedFile[]) => {
     const text = userText.trim();
     const delay = 950 + Math.min(1400, text.length * 14);
 
@@ -181,24 +188,25 @@ function Shell() {
     const last = msgs[msgs.length - 1];
     const base = last && last.kind === "analysis" && last.answered !== "yes" && last.analysis ? `${text} · ${last.analysis.userText}` : text;
 
-    const a = analyze(base);
+    const hints = files && files.length ? files.map((f) => ({ name: f.name, ext: f.ext })) : undefined;
+    const scanLabel = files && files.length ? t("scanFiles") : undefined;
+    const a = analyze(base, hints);
     if (!a) {
       withTyping(delay, () => push({
         id: uid(), role: "assistant", kind: "text", ts: Date.now(),
         text: t("unknown"),
         chips: SUGGESTIONS.slice(0, 4).map((s) => L(s.text)),
-      }));
+      }), scanLabel);
       return;
     }
-    withTyping(delay, () => push({ id: uid(), role: "assistant", kind: "analysis", ts: Date.now(), analysis: a }));
+    withTyping(delay, () => push({ id: uid(), role: "assistant", kind: "analysis", ts: Date.now(), analysis: a }), scanLabel);
   }, [msgs, push, withTyping, locale, t, L]);
 
-  const send = useCallback((raw: string) => {
+  const send = useCallback((raw: string, files?: AttachedFile[]) => {
     const text = raw.trim();
-    if (!text || typing) return;
-    push({ id: uid(), role: "user", kind: "text", ts: Date.now(), text });
-    setDraft("");
-    respond(text);
+    if ((!text && !(files && files.length)) || typing) return;
+    push({ id: uid(), role: "user", kind: "text", ts: Date.now(), text, files: files && files.length ? files : undefined });
+    respond(text, files);
   }, [push, respond, typing]);
 
   const acceptAnalysis = useCallback((msgId: string) => {
@@ -209,13 +217,15 @@ function Shell() {
   }, [msgs, push, withTyping]);
 
   const declineAnalysis = useCallback((msgId: string) => {
+    const target = msgs.find((m) => m.id === msgId);
+    const kind = target?.analysis?.kind;
     setMsgs((p) => p.map((m) => (m.id === msgId ? { ...m, answered: "no" as const } : m)));
     withTyping(900, () => push({
       id: uid(), role: "assistant", kind: "text", ts: Date.now(),
       text: t("declineTitle"),
-      chips: DECLINE_CHIPS.map((c) => L(c)),
+      chips: (kind === "task" ? TASK_DECLINE_CHIPS : DECLINE_CHIPS).map((c) => L(c)),
     }));
-  }, [push, withTyping, t, L]);
+  }, [msgs, push, withTyping, t, L]);
 
   const askCommand = useCallback((name: string) => {
     const clean = name.trim();
@@ -274,11 +284,15 @@ function Shell() {
   const stats = useMemo(() => [
     { k: t("sCmd"), v: `${ALL_COMMANDS.length}+` },
     { k: t("sCat"), v: String(CATEGORIES.length) },
-    { k: t("sModel"), v: String(MODELS.length) },
+    { k: t("sModel"), v: `${MODELS.length}+${TASK_ENGINES.length}` },
     { k: t("sCore"), v: String(CORE64.size) },
   ], [t]);
 
-  const coreList = useMemo(() => ALL_COMMANDS.filter((cm) => CORE64.has(cm.name)).map((cm) => cm.name), []);
+  const tickerList = useMemo(() => {
+    const visual = ALL_COMMANDS.filter((cm) => CORE64.has(cm.name)).map((cm) => ({ n: cm.name, k: "visual" as const }));
+    const task = CATEGORIES.filter((c) => c.kind === "task").flatMap((c) => c.top.slice(0, 3).map((n) => ({ n, k: "task" as const })));
+    return [...visual, ...task];
+  }, []);
 
   return (
     <div ref={rootRef} className="h-full flex flex-col relative overflow-hidden">
@@ -293,11 +307,11 @@ function Shell() {
       {/* الترويسة */}
       <header className="relative z-10 px-4 lg:px-6 pt-4 pb-3 flex items-center gap-3">
         <div className="grid place-items-center w-11 h-11 rounded-xl bg-gradient-to-br from-amber to-coral text-deep shadow-[0_6px_24px_rgba(242,163,60,0.35)]">
-          <Icon name="aperture" className="w-7 h-7" strokeWidth={1.7} />
+          <Icon name="slash" className="w-7 h-7" strokeWidth={2} />
         </div>
         <div className="leading-tight">
           <h1 className="font-display font-extrabold text-xl lg:text-2xl tracking-tight">
-            {locale === "ar" ? <>قاموس <span className="text-amber">البصر</span></> : <>Basar <span className="text-amber">Codewords</span></>}
+            {locale === "ar" ? <>مُحرّك <span className="text-amber">{t("appNameHi")}</span></> : <>Command <span className="text-amber">{t("appNameHi")}</span></>}
           </h1>
           <p className="text-[10.5px] text-dim font-mono dir-ltr text-start">{t("appTag")}</p>
         </div>
@@ -343,19 +357,27 @@ function Shell() {
         </div>
       </header>
 
-      {/* شريط Core 64 */}
+      {/* شريط الأوامر المميزة (بصري + مهام) */}
       <div className="ticker-wrap relative z-10 mx-4 lg:mx-6 mb-3 glass rounded-lg overflow-hidden">
         <div className="flex items-center">
           <span className="shrink-0 z-10 flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold text-amber border-e border-line bg-panel2/70">
-            <Icon name="layers" className="w-3.5 h-3.5" /> {t("core")}
+            <Icon name="layers" className="w-3.5 h-3.5" /> {t("tickerLbl")}
           </span>
           <div className="relative flex-1 overflow-hidden py-2" dir="ltr">
             <div className="ticker-track flex w-max gap-1.5 px-2">
               {[0, 1].map((dup) => (
                 <div key={dup} className="flex gap-1.5" aria-hidden={dup === 1}>
-                  {coreList.map((n) => (
-                    <button key={`${dup}-${n}`} onClick={() => { setTab("chat"); askCommand(n); }} className="chip-cmd font-mono text-[10px] text-teal/80 rounded border border-line/70 bg-panel2/40 px-2 py-0.5 hover:text-teal hover:border-teal/60 transition-colors">
-                      /{n}
+                  {tickerList.map((item) => (
+                    <button
+                      key={`${dup}-${item.n}`}
+                      onClick={() => { setTab("chat"); askCommand(item.n); }}
+                      className={`chip-cmd font-mono text-[10px] rounded border px-2 py-0.5 transition-colors ${
+                        item.k === "task"
+                          ? "text-coral/85 border-line/70 bg-panel2/40 hover:text-coral hover:border-coral/60"
+                          : "text-teal/80 border-line/70 bg-panel2/40 hover:text-teal hover:border-teal/60"
+                      }`}
+                    >
+                      /{item.n}
                     </button>
                   ))}
                 </div>
@@ -376,8 +398,8 @@ function Shell() {
                 onDecline={() => declineAnalysis(m.id)}
                 onCmd={askCommand}
                 onUse={useStack}
-                onNew={() => setDraft("")}
-                onChip={send}
+                onNew={() => setComposerKey((k) => k + 1)}
+                onChip={(c) => send(c)}
               />
             ))}
             {typing && <TypingRow label={typing} />}
@@ -385,36 +407,15 @@ function Shell() {
 
           <div className="px-4 pt-2 flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {SUGGESTIONS.map((s) => (
-              <button key={s.text.ar} onClick={() => send(L(s.text))} className="chip-cmd shrink-0 rounded-full glass px-3 py-1.5 text-[11px] text-mute hover:text-amberhi hover:border-amber/50 transition-colors">
+              <button key={s.text.ar} onClick={() => send(L(s.text))} className="chip-cmd shrink-0 inline-flex items-center gap-1.5 rounded-full glass px-3 py-1.5 text-[11px] text-mute hover:text-ink hover:border-amber/50 transition-colors">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${s.kind === "task" ? "bg-coral" : "bg-teal"}`} />
                 {L(s.label)}
               </button>
             ))}
           </div>
 
           <div className="p-3.5">
-            <form
-              onSubmit={(e) => { e.preventDefault(); send(draft); }}
-              className="flex items-end gap-2 glass glass-strong rounded-xl p-2 focus-within:border-teal/60 transition-colors shadow-[0_8px_30px_rgba(0,0,0,0.18)]"
-            >
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); } }}
-                rows={1}
-                placeholder={t("sendPh")}
-                className="flex-1 resize-none bg-transparent text-[13px] leading-relaxed placeholder:text-dim px-2 py-2 max-h-32 text-ink outline-none"
-                style={{ minHeight: "40px" }}
-                onInput={(e) => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = Math.min(128, el.scrollHeight) + "px"; }}
-              />
-              <button
-                type="submit"
-                disabled={!draft.trim() || !!typing}
-                className="btn-press grid place-items-center w-10 h-10 shrink-0 rounded-lg bg-amber text-deep disabled:opacity-35 disabled:cursor-not-allowed hover:bg-amberhi shadow-[0_4px_16px_rgba(242,163,60,0.35)]"
-                aria-label={t("chatTab")}
-              >
-                <Icon name="send" className="w-4.5 h-4.5 rtl:-scale-x-100" strokeWidth={2} />
-              </button>
-            </form>
+            <Composer key={composerKey} onSend={send} busy={!!typing} placeholder={t("sendPh")} />
             <p className="text-[9.5px] text-dim mt-2 px-1 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-good blink shrink-0" /> {t("engineNote")}
             </p>

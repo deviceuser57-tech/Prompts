@@ -105,6 +105,8 @@ const PATHS: Record<string, React.ReactNode> = {
       <path d="M3.2 12h17.6M12 3.2c2.6 2.3 3.9 5.2 3.9 8.8s-1.3 6.5-3.9 8.8c-2.6-2.3-3.9-5.2-3.9-8.8s1.3-6.5 3.9-8.8z" />
     </>
   ),
+  file: <path d="M13.5 3H7a1.8 1.8 0 0 0-1.8 1.8v14.4A1.8 1.8 0 0 0 7 21h10a1.8 1.8 0 0 0 1.8-1.8V8.3L13.5 3zM13.5 3v5.3h5.3M9 12.5h6M9 15.8h6" />,
+  paperclip: <path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />,
 };
 
 export function Icon({ name, className = "w-5 h-5", strokeWidth = 1.8 }: IconProps) {
