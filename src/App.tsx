@@ -6,16 +6,20 @@ import { AppProvider, useApp } from "./lib/i18n";
 import type { Msg, AttachedFile } from "./types";
 import { MessageView, TypingRow, useAutoScroll, Composer } from "./components/Chat";
 import { Library } from "./components/Library";
+import { SessionTray } from "./components/SessionTray";
 import { Icon } from "./components/Icons";
+import { createSession, getSession, loadSessions, saveSessions, updateSession, uid as storageUid } from "./lib/storage";
 
 const LS_KEY = "basar.chat.v3";
+const LS_CURRENT = "basar.currentSession";
+const LS_LEGACY = "basar.legacyLoaded";
 const RM = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const TYPING_AR = ["أراجع طلبك مراجعة سريعة…", "أفحص القاموس (250+ أمر بصري)…", "أقارن 8 نماذج توليد…", "أركّب تركيبة الأوامر…", "أضبط سقف الهلوسة…"];
 const TYPING_EN = ["Running a quick review…", "Scanning the dictionary (250+ commands)…", "Comparing 8 generation models…", "Stacking the commands…", "Tuning the hallucination ceiling…"];
 
 function uid() {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return storageUid();
 }
 
 function greetingMsg(locale: "ar" | "en"): Msg {
@@ -39,12 +43,24 @@ const FLOATING_CMDS = [
 
 function Shell() {
   const { locale, setLocale, theme, setTheme, t, L } = useApp();
+
+  // تهيئة الجلسة الحالية
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    try { return localStorage.getItem(LS_CURRENT); } catch { return null; }
+  });
   const [msgs, setMsgs] = useState<Msg[]>(() => {
+    const sid = (() => { try { return localStorage.getItem(LS_CURRENT); } catch { return null; } })();
+    const sess = sid ? getSession(sid) : null;
+    if (sess && sess.msgs.length) return sess.msgs;
+    // ترحيل البيانات القديمة مرة واحدة
     try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Msg[];
-        if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (!localStorage.getItem(LS_LEGACY)) {
+        const raw = localStorage.getItem(LS_KEY);
+        localStorage.setItem(LS_LEGACY, "1");
+        if (raw) {
+          const parsed = JSON.parse(raw) as Msg[];
+          if (Array.isArray(parsed) && parsed.length) return parsed;
+        }
       }
     } catch { /* ignore */ }
     return [greetingMsg(locale)];
@@ -52,12 +68,28 @@ function Shell() {
   const [typing, setTyping] = useState<string | null>(null);
   const [composerKey, setComposerKey] = useState(0);
   const [tab, setTab] = useState<"chat" | "lib">("chat");
+  const [sessions, setSessions] = useState(() => loadSessions());
   const timers = useRef<number[]>([]);
   const labelIdx = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const scrollRef = useAutoScroll([msgs.length, typing]);
   const typingLabels = locale === "ar" ? TYPING_AR : TYPING_EN;
+
+  // حفظ الجلسة عند تغيّر الرسائل
+  useEffect(() => {
+    const sid = sessionId;
+    if (!sid) {
+      try { localStorage.setItem(LS_KEY, JSON.stringify(msgs.slice(-40))); } catch { /* ignore */ }
+      return;
+    }
+    const all = loadSessions();
+    const idx = all.findIndex((s) => s.id === sid);
+    const upd = { ...(all[idx] ?? { id: sid, title: t("newSession"), createdAt: Date.now() }), updatedAt: Date.now(), msgs: msgs.slice(-80) };
+    if (idx >= 0) all[idx] = upd; else all.unshift(upd);
+    saveSessions(all);
+    setSessions(all);
+  }, [msgs, sessionId, t]);
 
   useEffect(() => {
     const slice = msgs.slice(-40);
@@ -67,6 +99,8 @@ function Shell() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(slice)); }
     catch { try { localStorage.setItem(LS_KEY, JSON.stringify(slim)); } catch { /* ignore */ } }
   }, [msgs]);
+    try { localStorage.setItem(LS_CURRENT, sessionId ?? ""); } catch { /* ignore */ }
+  }, [sessionId]);
   useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);
 
   /* GSAP: المقدمة + أوامر عائمة + بارالاكس */
@@ -198,11 +232,53 @@ function Shell() {
     send(clean.startsWith("/") ? clean : `/${clean}`);
   }, [send]);
   const useStack = useCallback((stack: string) => send(locale === "ar" ? `اعمل لي: ${stack}` : `Do this: ${stack}`), [send, locale]);
+
+  /* -------- إدارة الجلسات -------- */
+  const newSession = useCallback(() => {
+    timers.current.forEach(clearTimeout);
+    setTyping(null);
+    const s = createSession();
+    setSessionId(s.id);
+    setMsgs([greetingMsg(locale)]);
+    setTab("chat");
+    setSessions(loadSessions());
+  }, [locale]);
+
+  const openSession = useCallback((id: string) => {
+    if (id === "__none__") {
+      setSessionId(null);
+      setMsgs([greetingMsg(locale)]);
+      setTab("chat");
+      return;
+    }
+    const s = getSession(id);
+    if (!s) return;
+    timers.current.forEach(clearTimeout);
+    setTyping(null);
+    setSessionId(s.id);
+    setMsgs(s.msgs.length ? s.msgs : [greetingMsg(locale)]);
+    setTab("chat");
+  }, [locale]);
+
   const resetChat = useCallback(() => {
     timers.current.forEach(clearTimeout);
     setTyping(null);
     setMsgs([greetingMsg(locale)]);
     setTab("chat");
+  }, [locale]);
+
+  // استيراد من JSON (يستدعيها SessionTray عبر window)
+  useEffect(() => {
+    (window as any).__basarImport = (arr: Msg[]) => {
+      timers.current.forEach(clearTimeout);
+      setTyping(null);
+      const s = createSession();
+      setSessionId(s.id);
+      setMsgs(arr.length ? arr : [greetingMsg(locale)]);
+      setTab("chat");
+      setSessions(loadSessions());
+    };
+    return () => { delete (window as any).__basarImport; };
   }, [locale]);
 
   const stats = useMemo(() => [
@@ -249,7 +325,15 @@ function Shell() {
           ))}
         </div>
 
-        <div className="flex items-center gap-1.5 ms-auto md:ms-2">
+        <div className="relative flex items-center gap-1.5 ms-auto md:ms-2">
+          {/* الجلسات */}
+          <SessionTray
+            sessions={sessions}
+            currentId={sessionId}
+            onOpen={openSession}
+            onNew={newSession}
+            msgs={msgs}
+          />
           {/* لغة */}
           <button
             onClick={() => setLocale(locale === "ar" ? "en" : "ar")}
@@ -267,7 +351,7 @@ function Shell() {
           >
             <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
           </button>
-          <button onClick={resetChat} className="btn-press inline-flex items-center gap-1.5 glass rounded-lg px-3 py-2 text-[11.5px] text-mute hover:text-coral hover:border-coral/50">
+          <button onClick={newSession} className="btn-press inline-flex items-center gap-1.5 glass rounded-lg px-3 py-2 text-[11.5px] text-mute hover:text-coral hover:border-coral/50">
             <Icon name="refresh" className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{t("newSession")}</span>
           </button>
         </div>

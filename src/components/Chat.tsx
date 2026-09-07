@@ -5,11 +5,26 @@ import type { Analysis, BuiltPrompt, Bi } from "../lib/engine";
 import { useApp } from "../lib/i18n";
 import { enginesFor, ratingLabel } from "../data/commands";
 import { Icon, StatusDot } from "./Icons";
+import { download as dlStorage, exportMessagesJSON, shareJSON } from "../lib/storage";
 
 const RM = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------------- نسخ وتنزيل ---------------- */
-async function copyText(text: string) {
+function download(name: string, content: string) {
+  dlStorage(name, content);
+}
+export function sharePrompt(p: BuiltPrompt): string {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("prompt", encodeURIComponent(JSON.stringify(p)));
+    if (navigator.clipboard) navigator.clipboard.writeText(url.href);
+    return url.href;
+  } catch { return ""; }
+}
+export function exportJSON(p: BuiltPrompt, name = "visual-spec.json"): void {
+  dlStorage(name, JSON.stringify(p, null, 2));
+}
+export async function copyText(text: string) {
   try { await navigator.clipboard.writeText(text); } catch {
     const ta = document.createElement("textarea");
     ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
@@ -18,7 +33,8 @@ async function copyText(text: string) {
     ta.remove();
   }
 }
-function download(name: string, content: string) {
+
+export function download(name: string, content: string) {
   const blob = new Blob(["\uFEFF" + content], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -62,6 +78,32 @@ function DownloadBtn({ name, content, label, labelDone }: { name: string; conten
     >
       <Icon name={on ? "check" : "download"} className="w-3.5 h-3.5" strokeWidth={2.2} />
       <span>{on ? labelDone : label}</span>
+    </button>
+  );
+}
+function ShareBtn({ p }: { p: BuiltPrompt }) {
+  const { t } = useApp();
+  const { on, fire } = useFlash(2000);
+  return (
+    <button
+      onClick={async () => { if (sharePrompt(p)) fire(); }}
+      className={`btn-press inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${on ? "border-good/60 bg-good/15 text-good" : "border-line bg-panel2/60 text-mute hover:text-ink hover:border-teal/50"}`}
+    >
+      <Icon name={on ? "check" : "share"} className="w-3.5 h-3.5" strokeWidth={2.2} />
+      <span>{on ? t("shared") : t("sharePrompt")}</span>
+    </button>
+  );
+}
+function JsonBtn({ p }: { p: BuiltPrompt }) {
+  const { t } = useApp();
+  const { on, fire } = useFlash(2200);
+  return (
+    <button
+      onClick={() => { exportJSON(p); fire(); }}
+      className="btn-press inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors border-line bg-panel2/60 text-mute hover:text-ink hover:border-teal/50"
+    >
+      <Icon name={on ? "check" : "box"} className="w-3.5 h-3.5" strokeWidth={2.2} />
+      <span>{on ? t("downloaded") : "JSON"}</span>
     </button>
   );
 }
@@ -177,7 +219,6 @@ function AnalysisCard({ msg, onAccept, onDecline, onCmd }: {
         {/* 1) الأنسب للتنفيذ */}
         <section>
           <SectionTitle n="1" title={a.kind === "task" ? t("sec1t") : t("sec1")} />
-          {/* بانر التوصية */}
           <div className="mb-3 flex items-center gap-3 rounded-lg border border-amber/45 bg-gradient-to-l from-amber/15 via-amber/5 to-transparent px-3.5 py-3">
             <div className="grid place-items-center w-9 h-9 shrink-0 rounded-lg bg-amber/20 border border-amber/50 text-amber">
               <Icon name="crown" className="w-5 h-5" strokeWidth={1.8} />
@@ -298,7 +339,6 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
         </span>
       </div>
 
-      {/* الميتا */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-line">
         {[
           { k: t("metaModel"), v: p.meta.model, hi: true },
@@ -326,7 +366,6 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
           </div>
         ))}
 
-        {/* الكتلة الجاهزة */}
         <div className="rounded-lg border border-teal/40 bg-panel2/40 overflow-hidden">
           <div className="px-3 py-2 border-b border-line/60 flex items-center gap-2 flex-wrap">
             <Icon name="slash" className="w-3.5 h-3.5 text-teal" strokeWidth={2.2} />
@@ -347,6 +386,9 @@ function PromptCard({ msg, onNew }: { msg: Msg; onNew: () => void }) {
         <div className="flex flex-wrap gap-2 pt-1">
           <CopyBtn text={formatFullSpec(p)} label={t("copyFull")} labelDone={t("copied")} />
           <DownloadBtn name={p.kind === "task" ? "task-protocol-spec.txt" : "visual-protocol-spec.txt"} content={formatFullSpec(p)} label={t("dlFull")} labelDone={t("downloaded")} />
+          <DownloadBtn name="visual-spec-full.txt" content={formatFullSpec(p)} label={t("dlFull")} labelDone={t("downloaded")} />
+          <ShareBtn p={p} />
+          <JsonBtn p={p} />
           <button onClick={onNew} className="btn-press inline-flex items-center gap-2 rounded-lg border border-teal/40 bg-teal/10 px-3.5 py-2 text-xs font-semibold text-teal hover:bg-teal/20">
             <Icon name="refresh" className="w-4 h-4" /> {t("newReq")}
           </button>

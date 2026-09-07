@@ -42,6 +42,7 @@ const ar = {
   attach: "إرفاق ملفات", dropHere: "أفلت الملفات هنا", dropSub: "صور · مستندات · كود · صوت · فيديو · أي نوع",
   removeFile: "إزالة الملف", fileGone: "معاينة غير متاحة بعد إعادة التحميل", filesAttached: "ملف مرفق",
   filesInMsg: "مرفقات", openImage: "عرض الصورة", scanFiles: "أفحص الملفات المرفقة…",
+  sessions: "الجلسات", noSessions: "لا توجد جلسات بعد — أنشئ جلسة جديدة", deleteSession: "حذف الجلسة", exportJson: "تصدير JSON", importJson: "استيراد JSON", shareChat: "مشاركة", done: "تم بنجاح", errImport: "تعذّر الاستيراد: صيغة غير صالحة", shared: "تم نسخ رابط المشاركة", sharePrompt: "مشاركة",
 };
 const en: typeof ar = {
   appName: "Command Engine", appNameHi: "Engine", appTag: "Visual + Task Commands · Prompt Studio",
@@ -83,6 +84,7 @@ const en: typeof ar = {
   attach: "Attach files", dropHere: "Drop files here", dropSub: "Images · Docs · Code · Audio · Video · any type",
   removeFile: "Remove file", fileGone: "Preview unavailable after reload", filesAttached: "attached file(s)",
   filesInMsg: "Attachments", openImage: "View image", scanFiles: "Scanning attached files…",
+  sessions: "Sessions", noSessions: "No sessions yet — start a new one", deleteSession: "Delete session", exportJson: "Export JSON", importJson: "Import JSON", shareChat: "Share", done: "Done", errImport: "Import failed: invalid format", shared: "Share link copied", sharePrompt: "Share",
 };
 
 export type TKey = keyof typeof ar;
