@@ -7,6 +7,7 @@ import type { Msg, AttachedFile } from "./types";
 import { MessageView, TypingRow, useAutoScroll, Composer } from "./components/Chat";
 import { Library } from "./components/Library";
 import { SessionTray } from "./components/SessionTray";
+import { WorkspacePanel } from "./components/WorkspacePanel";
 import { Icon } from "./components/Icons";
 import { createSession, getSession, loadSessions, saveSessions, updateSession, uid as storageUid } from "./lib/storage";
 
@@ -67,7 +68,7 @@ function Shell() {
   });
   const [typing, setTyping] = useState<string | null>(null);
   const [composerKey, setComposerKey] = useState(0);
-  const [tab, setTab] = useState<"chat" | "lib">("chat");
+  const [tab, setTab] = useState<"chat" | "lib" | "workspace">("chat");
   const [sessions, setSessions] = useState(() => loadSessions());
   const timers = useRef<number[]>([]);
   const labelIdx = useRef(0);
@@ -99,6 +100,7 @@ function Shell() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(slice)); }
     catch { try { localStorage.setItem(LS_KEY, JSON.stringify(slim)); } catch { /* ignore */ } }
   }, [msgs]);
+  useEffect(() => {
     try { localStorage.setItem(LS_CURRENT, sessionId ?? ""); } catch { /* ignore */ }
   }, [sessionId]);
   useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);
@@ -422,17 +424,30 @@ function Shell() {
           </div>
         </section>
 
-        <aside className={`panel-main relative min-h-0 ${tab === "lib" ? "block" : "hidden lg:block"}`}>
+        <aside className={`panel-main relative min-h-0 ${tab === "lib" ? "block" : tab === "workspace" ? "hidden lg:block" : "hidden lg:block"}`}>
           <Library onAsk={(txt) => { setTab("chat"); send(txt); }} onRequestCommand={(n) => { setTab("chat"); askCommand(n); }} />
         </aside>
+        
+        {/* Workspace Panel - يظهر كعلامة تبويب ثالثة */}
+        {tab === "workspace" && (
+          <div className="lg:col-span-2 panel-main min-h-0">
+            <WorkspacePanel
+              userText={msgs.filter(m => m.role === "user").slice(-1)[0]?.text || ""}
+              attachedFiles={msgs.filter(m => m.role === "user").slice(-1)[0]?.files?.map(f => ({ name: f.name, type: f.mime })) || []}
+            />
+          </div>
+        )}
       </main>
 
-      <nav className="lg:hidden relative z-10 grid grid-cols-2 gap-2 px-4 pb-3">
+      <nav className="lg:hidden relative z-10 grid grid-cols-3 gap-2 px-4 pb-3">
         <button onClick={() => setTab("chat")} className={`btn-press flex items-center justify-center gap-2 rounded-lg border py-2.5 text-[12.5px] font-semibold transition-colors ${tab === "chat" ? "border-amber/60 bg-amber/15 text-amberhi" : "glass text-mute"}`}>
           <Icon name="chat" className="w-4 h-4" /> {t("chatTab")}
         </button>
         <button onClick={() => setTab("lib")} className={`btn-press flex items-center justify-center gap-2 rounded-lg border py-2.5 text-[12.5px] font-semibold transition-colors ${tab === "lib" ? "border-teal/60 bg-teal/15 text-teal" : "glass text-mute"}`}>
           <Icon name="book" className="w-4 h-4" /> {t("libTab")}
+        </button>
+        <button onClick={() => setTab("workspace")} className={`btn-press flex items-center justify-center gap-2 rounded-lg border py-2.5 text-[12.5px] font-semibold transition-colors ${tab === "workspace" ? "border-coral/60 bg-coral/15 text-coral" : "glass text-mute"}`}>
+          <Icon name="spark" className="w-4 h-4" /> {t("workspace")}
         </button>
       </nav>
     </div>

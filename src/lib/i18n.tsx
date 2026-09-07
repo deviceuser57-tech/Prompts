@@ -43,6 +43,24 @@ const ar = {
   removeFile: "إزالة الملف", fileGone: "معاينة غير متاحة بعد إعادة التحميل", filesAttached: "ملف مرفق",
   filesInMsg: "مرفقات", openImage: "عرض الصورة", scanFiles: "أفحص الملفات المرفقة…",
   sessions: "الجلسات", noSessions: "لا توجد جلسات بعد — أنشئ جلسة جديدة", deleteSession: "حذف الجلسة", exportJson: "تصدير JSON", importJson: "استيراد JSON", shareChat: "مشاركة", done: "تم بنجاح", errImport: "تعذّر الاستيراد: صيغة غير صالحة", shared: "تم نسخ رابط المشاركة", sharePrompt: "مشاركة",
+  /* الأوضاع */
+  modeQuick: "سريع", modeExpert: "خبير", modeEnterprise: "مؤسسي",
+  modeQuickDesc: "للطلبات اليومية البسيطة", modeExpertDesc: "تحكم كامل في المواصفات", modeEnterpriseDesc: "إصدارات واختبارات وحوكمة",
+  /* مساحة البرومبت */
+  workspace: "مساحة البرومبت", intent: "النية", specification: "المواصفة", compiled: "المُجمَّع",
+  validation: "التحقق", redteam: "Red Team", tests: "الاختبارات", score: "النتيجة",
+  diff: "المقارنة", save: "حفظ", release: "نشر",
+  required: "مطلوب", recommended: "موصى به", optional: "اختياري", notApplicable: "غير مناسب",
+  /* سجل الأصول */
+  registry: "سجل الأصول", assets: "الأصول", versions: "الإصدارات", audit: "سجل التدقيق",
+  newAsset: "أصل جديد", publish: "نشر", deprecate: "إيقاف", compare: "مقارنة",
+  draft: "مسودة", review: "مراجعة", approved: "معتمد", published: "منشور", deprecated: "موقوف",
+  /* الجاهزية */
+  readiness: "الجاهزية", notEvaluated: "لم يُقيَّم", partiallyTested: "مختبر جزئيًا",
+  needsReview: "يحتاج مراجعة", readyForRelease: "جاهز للنشر", notReady: "غير جاهز", blocked: "محظور",
+  /* حالة التنفيذ */
+  measured: "مُقاس", estimated: "مُقدَّر", inferred: "مُستنتَج", notExecuted: "لم يُنفَّذ", unavailable: "غير متاح",
+  staticAnalysis: "تحليل ثابت فقط",
 };
 const en: typeof ar = {
   appName: "Command Engine", appNameHi: "Engine", appTag: "Visual + Task Commands · Prompt Studio",
@@ -85,6 +103,24 @@ const en: typeof ar = {
   removeFile: "Remove file", fileGone: "Preview unavailable after reload", filesAttached: "attached file(s)",
   filesInMsg: "Attachments", openImage: "View image", scanFiles: "Scanning attached files…",
   sessions: "Sessions", noSessions: "No sessions yet — start a new one", deleteSession: "Delete session", exportJson: "Export JSON", importJson: "Import JSON", shareChat: "Share", done: "Done", errImport: "Import failed: invalid format", shared: "Share link copied", sharePrompt: "Share",
+  /* Modes */
+  modeQuick: "Quick", modeExpert: "Expert", modeEnterprise: "Enterprise",
+  modeQuickDesc: "For simple daily requests", modeExpertDesc: "Full specification control", modeEnterpriseDesc: "Versions, tests, and governance",
+  /* Prompt Workspace */
+  workspace: "Prompt Workspace", intent: "Intent", specification: "Specification", compiled: "Compiled",
+  validation: "Validation", redteam: "Red Team", tests: "Tests", score: "Score",
+  diff: "Diff", save: "Save", release: "Release",
+  required: "Required", recommended: "Recommended", optional: "Optional", notApplicable: "N/A",
+  /* Registry */
+  registry: "Registry", assets: "Assets", versions: "Versions", audit: "Audit",
+  newAsset: "New Asset", publish: "Publish", deprecate: "Deprecate", compare: "Compare",
+  draft: "Draft", review: "Review", approved: "Approved", published: "Published", deprecated: "Deprecated",
+  /* Readiness */
+  readiness: "Readiness", notEvaluated: "Not Evaluated", partiallyTested: "Partially Tested",
+  needsReview: "Needs Review", readyForRelease: "Ready for Release", notReady: "Not Ready", blocked: "Blocked",
+  /* Execution status */
+  measured: "Measured", estimated: "Estimated", inferred: "Inferred", notExecuted: "Not Executed", unavailable: "Unavailable",
+  staticAnalysis: "Static Analysis Only",
 };
 
 export type TKey = keyof typeof ar;
