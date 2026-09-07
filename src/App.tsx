@@ -99,6 +99,7 @@ function Shell() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(slice)); }
     catch { try { localStorage.setItem(LS_KEY, JSON.stringify(slim)); } catch { /* ignore */ } }
   }, [msgs]);
+  useEffect(() => {
     try { localStorage.setItem(LS_CURRENT, sessionId ?? ""); } catch { /* ignore */ }
   }, [sessionId]);
   useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);

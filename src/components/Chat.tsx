@@ -10,9 +10,6 @@ import { download as dlStorage, exportMessagesJSON, shareJSON } from "../lib/sto
 const RM = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------------- نسخ وتنزيل ---------------- */
-function download(name: string, content: string) {
-  dlStorage(name, content);
-}
 export function sharePrompt(p: BuiltPrompt): string {
   try {
     const url = new URL(window.location.href);
