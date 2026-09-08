@@ -1,4 +1,54 @@
 /* ============================================================================
+ * EVIDENCE-BASED SCORING
+ * ============================================================================
+ * Replaces naked confidence scores with evidence-backed assessments.
+ * Never present a value without indicating how it was derived.
+ * ============================================================================ */
+
+export type EvidenceStatus =
+  | "measured"      // Actual execution/observation occurred
+  | "inferred"      // Derived from related evidence
+  | "estimated"     // Prediction without direct evidence
+  | "not_tested";   // No attempt to measure
+
+export interface EvidenceItem {
+  source: string;        // e.g., "task_analysis", "user_input", "policy_rule"
+  observation: string;   // What was observed
+  timestamp?: number;    // When measured
+}
+
+export interface EvidenceScore {
+  value?: number;                    // 0-100, only if measured/inferred
+  status: EvidenceStatus;            // How this score was derived
+  basis: string;                     // One-line explanation
+  evidence: EvidenceItem[];          // Supporting observations
+  measuredAt?: number;               // Timestamp of last measurement
+}
+
+export function createEvidenceScore(
+  status: EvidenceStatus,
+  basis: string,
+  value?: number,
+  evidence: EvidenceItem[] = []
+): EvidenceScore {
+  return {
+    value,
+    status,
+    basis,
+    evidence,
+    measuredAt: status === "measured" || status === "inferred" ? Date.now() : undefined,
+  };
+}
+
+export function emptyEvidenceScore(): EvidenceScore {
+  return {
+    status: "not_tested",
+    basis: "No assessment performed",
+    evidence: [],
+  };
+}
+
+/* ============================================================================
  * PROMPT SPECIFICATION / INTERMEDIATE REPRESENTATION (IR)
  * ============================================================================
  * This is the model-independent, serializable, versionable, testable
@@ -389,9 +439,15 @@ export interface PromptComponentDecision {
   component: string;
   status: ComponentStatus;
   reason: string;
-  confidence?: number;
+  evidence?: import("./specification").EvidenceScore;  // Evidence-backed confidence
   dependencies?: string[];
   source: "task_analysis" | "risk_policy" | "user_selection" | "dependency_rule" | "system_safeguard";
+  trace?: {
+    ruleId?: string;
+    policyId?: string;
+    overriddenByUser?: boolean;
+    overriddenAt?: number;
+  };
 }
 
 /* ============================================================================

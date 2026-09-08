@@ -16,7 +16,9 @@ import type {
   RiskLevel,
   PersonaSpec,
   Bi,
+  EvidenceScore,
 } from "./specification";
+import { createEvidenceScore } from "./specification";
 import { normalize } from "../engine";
 
 /* ============================================================================
@@ -182,16 +184,30 @@ export function decideComponents(intent: IntentAnalysis): PromptComponentDecisio
     status: ComponentStatus,
     reason: string,
     source: PromptComponentDecision["source"],
-    confidence?: number,
-    dependencies?: string[]
-  ): PromptComponentDecision => ({
-    component,
-    status,
-    reason,
-    source,
-    confidence,
-    dependencies,
-  });
+    confidenceValue?: number,
+    dependencies?: string[],
+    trace?: PromptComponentDecision["trace"]
+  ): PromptComponentDecision => {
+    // Convert naked confidence to EvidenceScore
+    const evidence: EvidenceScore | undefined = confidenceValue !== undefined
+      ? createEvidenceScore(
+          confidenceValue >= 0.9 ? "measured" : confidenceValue >= 0.7 ? "inferred" : "estimated",
+          `Confidence ${Math.round(confidenceValue * 100)}% based on ${source}`,
+          Math.round(confidenceValue * 100),
+          [{ source, observation: reason }]
+        )
+      : undefined;
+    
+    return {
+      component,
+      status,
+      reason,
+      evidence,
+      dependencies,
+      source,
+      trace,
+    };
+  };
   
   // Core components
   decisions.push(makeDecision(
@@ -376,7 +392,9 @@ export function decideComponents(intent: IntentAnalysis): PromptComponentDecisio
       "required",
       "Critical-risk tasks require explicit security specification",
       "risk_policy",
-      1.0
+      1.0,
+      undefined,
+      { policyId: "SEC-001", ruleId: "RISK_CRITICAL_SECURITY" }
     ));
   } else if (intent.riskLevel === "high") {
     decisions.push(makeDecision(
@@ -384,7 +402,9 @@ export function decideComponents(intent: IntentAnalysis): PromptComponentDecisio
       "recommended",
       "High-risk tasks benefit from security specification",
       "risk_policy",
-      0.85
+      0.85,
+      undefined,
+      { policyId: "SEC-002", ruleId: "RISK_HIGH_SECURITY" }
     ));
   } else {
     decisions.push(makeDecision(
