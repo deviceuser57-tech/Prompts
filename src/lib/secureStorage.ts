@@ -5,7 +5,7 @@
 
 import { logger } from './logger';
 
-// Simple XOR encryption for client-side use (not production-grade for sensitive data)
+// Simple XOR encryption for client-side use
 class SimpleEncryption {
   private key: string;
 
@@ -13,30 +13,22 @@ class SimpleEncryption {
     this.key = key;
   }
 
-  /**
-   * تشفير النص
-   * Encrypt text
-   */
   encrypt(text: string): string {
     try {
-      const encoded = btoa(text); // Base64 encode
+      const encoded = btoa(text);
       let encrypted = '';
       for (let i = 0; i < encoded.length; i++) {
         encrypted += String.fromCharCode(
           encoded.charCodeAt(i) ^ this.key.charCodeAt(i % this.key.length)
         );
       }
-      return btoa(encrypted); // Double encode
+      return btoa(encrypted);
     } catch (error) {
       logger.error('Encryption failed', error as Error);
-      return text; // Return original if encryption fails
+      return text;
     }
   }
 
-  /**
-   * فك تشفير النص
-   * Decrypt text
-   */
   decrypt(encrypted: string): string {
     try {
       const decoded = atob(encrypted);
@@ -75,10 +67,6 @@ class SecureStorage {
     this.encryption = new SimpleEncryption(this.generateKey());
   }
 
-  /**
-   * توليد مفتاح تشفير من معرّف الجهاز
-   * Generate encryption key from device identifier
-   */
   private generateKey(): string {
     try {
       const stored = sessionStorage.getItem('__device_key__');
@@ -91,15 +79,11 @@ class SecureStorage {
       sessionStorage.setItem('__device_key__', key);
       return key;
     } catch (error) {
-      logger.warn('Could not generate secure key', { error: String(error) });
+      logger.warn('Could not generate secure key');
       return 'fallback-key';
     }
   }
 
-  /**
-   * حفظ بيانات في التخزين
-   * Save data to storage
-   */
   set<T>(key: string, value: T, options: StorageOptions = {}): boolean {
     try {
       const shouldEncrypt = options.encrypt ?? this.encryptionEnabled;
@@ -119,7 +103,7 @@ class SecureStorage {
       };
 
       localStorage.setItem(key, JSON.stringify(item));
-      logger.debug(`Storage item saved: ${key}`, { encrypted: shouldEncrypt });
+      logger.debug(`Storage item saved: ${key}`);
       return true;
     } catch (error) {
       logger.error(`Failed to save storage item: ${key}`, error as Error);
@@ -127,10 +111,6 @@ class SecureStorage {
     }
   }
 
-  /**
-   * استرجاع البيانات من التخزين
-   * Retrieve data from storage
-   */
   get<T>(key: string): T | null {
     try {
       const itemStr = localStorage.getItem(key);
@@ -138,7 +118,6 @@ class SecureStorage {
 
       const item: StorageItem<string> = JSON.parse(itemStr);
 
-      // التحقق من انتهاء الصلاحية
       if (item.expiresAt && Date.now() > item.expiresAt) {
         localStorage.removeItem(key);
         logger.info(`Storage item expired: ${key}`);
@@ -158,10 +137,6 @@ class SecureStorage {
     }
   }
 
-  /**
-   * حذف عنصر من التخزين
-   * Remove item from storage
-   */
   remove(key: string): boolean {
     try {
       localStorage.removeItem(key);
@@ -173,18 +148,10 @@ class SecureStorage {
     }
   }
 
-  /**
-   * التحقق من وجود عنصر
-   * Check if item exists
-   */
   has(key: string): boolean {
     return localStorage.getItem(key) !== null;
   }
 
-  /**
-   * الحصول على جميع المفاتيح
-   * Get all keys
-   */
   keys(): string[] {
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -196,10 +163,6 @@ class SecureStorage {
     return keys;
   }
 
-  /**
-   * تنظيف العناصر المنتهية الصلاحية
-   * Clean expired items
-   */
   cleanExpired(): number {
     let cleaned = 0;
     const now = Date.now();
@@ -226,10 +189,6 @@ class SecureStorage {
     return cleaned;
   }
 
-  /**
-   * حذف جميع البيانات
-   * Clear all data
-   */
   clear(): boolean {
     try {
       localStorage.clear();
@@ -241,10 +200,6 @@ class SecureStorage {
     }
   }
 
-  /**
-   * الحصول على حجم التخزين المستخدم
-   * Get storage size in bytes
-   */
   getSize(): number {
     let size = 0;
     for (const key of this.keys()) {
@@ -257,5 +212,4 @@ class SecureStorage {
   }
 }
 
-// إنشاء instance واحد من SecureStorage
 export const secureStorage = new SecureStorage();
