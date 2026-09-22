@@ -1,8 +1,56 @@
 ```
 # Dependencies
 node_modules/
+
 # Build artifacts
 dist/
-# Vite cache
-.vite/
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Compiled and binary
+*.class
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# MyPy
+.mypy_cache/
+
+# Pytest
+.pytest_cache/
+
+# Venv
+.venv/
+venv/
 ```
